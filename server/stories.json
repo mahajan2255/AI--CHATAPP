@@ -1,0 +1,61 @@
+{
+  "stories": [
+    {
+      "userId": "1763755172783",
+      "username": "hi",
+      "avatar": "http://localhost:3001/uploads/1767259555586.mp4",
+      "items": [
+        {
+          "url": "http://localhost:3001/uploads/1767463762187.jpeg",
+          "type": "image",
+          "time": "23:39",
+          "duration": 5000,
+          "caption": "",
+          "timestamp": 1767463762197,
+          "views": [
+            {
+              "viewerId": "1763743199505",
+              "viewerName": "hello",
+              "viewerAvatar": "http://localhost:3001/uploads/1764252710902.gif",
+              "time": "2026-01-03T18:10:04.037Z"
+            }
+          ]
+        },
+        {
+          "url": "http://localhost:3001/uploads/1767463783814.gif",
+          "type": "image",
+          "time": "23:39",
+          "duration": 5000,
+          "caption": "fuck u",
+          "timestamp": 1767463783820,
+          "views": [
+            {
+              "viewerId": "1763743199505",
+              "viewerName": "hello",
+              "viewerAvatar": "http://localhost:3001/uploads/1764252710902.gif",
+              "time": "2026-01-03T18:10:05.226Z"
+            }
+          ],
+          "likes": []
+        }
+      ],
+      "timestamp": 1767463783820
+    },
+    {
+      "userId": "1763743199505",
+      "username": "hello",
+      "avatar": "http://localhost:3001/uploads/1764252710902.gif",
+      "items": [
+        {
+          "url": "http://localhost:3001/uploads/1767464168951.gif",
+          "type": "image",
+          "time": "23:46",
+          "duration": 5000,
+          "caption": "beats",
+          "timestamp": 1767464168963
+        }
+      ],
+      "timestamp": 1767464168963
+    }
+  ]
+}

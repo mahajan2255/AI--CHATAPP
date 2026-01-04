@@ -1,0 +1,563 @@
+import React, { useState, useEffect } from 'react';
+import {
+    FiPhone, FiVideo, FiClock, FiTrash2, FiSearch, FiX,
+    FiPhoneIncoming, FiPhoneOutgoing, FiPhoneMissed,
+    FiCalendar, FiFilter, FiDownload, FiPlay, FiPause,
+    FiVolume2, FiMoreHorizontal, FiArrowRight, FiArrowLeft, FiPlus
+} from 'react-icons/fi';
+import Avatar from './Avatar';
+
+function CallsPanel({ user, socket, friends = [], onlineUsers = [], onStartCall, theme }) {
+    const [calls, setCalls] = useState([]);
+    const [activeTab, setActiveTab] = useState('External'); // External, Internal, My calls, Missed yesterday, Missed Vip
+    const [filter, setFilter] = useState('All'); // All, Missed, Incoming, Outgoing
+    const [loading, setLoading] = useState(true);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [dateRange, setDateRange] = useState('This week');
+    const [showDurationPicker, setShowDurationPicker] = useState(false); // Toggle for "Duration" dropdown
+
+    // Mock "Player" state
+    // Audio Ref
+    const audioRef = React.useRef(null);
+    const [activePlayer, setActivePlayer] = useState({ isPlaying: false, callId: null, progress: 0, url: null });
+    const [recordings, setRecordings] = useState({});
+
+    // Sync Audio Element
+    useEffect(() => {
+        if (!audioRef.current) return;
+        if (activePlayer.isPlaying) {
+            audioRef.current.play().catch(e => console.error("Play error:", e));
+        } else {
+            audioRef.current.pause();
+        }
+    }, [activePlayer.isPlaying, activePlayer.url]);
+    const [allTags, setAllTags] = useState({}); // { [userId]: [tags...] }
+
+    // Load recordings/tags
+    useEffect(() => {
+        const loadExtras = () => {
+            try {
+                // Recordings
+                const recs = JSON.parse(localStorage.getItem('call_recordings') || '{}');
+                // Also check 'latest' for recent match
+                const latest = localStorage.getItem('latest_call_recording');
+                setRecordings({ ...recs, latest });
+
+                // Tags for all users (inefficient but works for demo)
+                // We actually need per-user. 
+                // We'll scan friends list or just load on demand?
+                // Let's load tags for the *current* user's contact list from localStorage key `contact_tags_ID`
+                // But we don't have the ID of everyone easily.
+                // Better: The 'contact_tags_ID' is 'tags ASSIGNED TO ID'.
+                // So if I assigned tags to User A, it's stored under `contact_tags_UserA`.
+                // Wait, in ContactInfo I stored it as `contact_tags_${user.id}` where user.id is the CONTACT'S ID.
+                // So I need to read `contact_tags_X` for each row.
+            } catch (e) { }
+        };
+        loadExtras();
+        window.addEventListener('recordings_updated', loadExtras);
+        window.addEventListener('contact_tags_updated', loadExtras); // We might need to listen to this
+        return () => {
+            window.removeEventListener('recordings_updated', loadExtras);
+            window.removeEventListener('contact_tags_updated', loadExtras);
+        };
+    }, []);
+
+    const getTagsForUser = (userId) => {
+        try {
+            const raw = localStorage.getItem(`contact_tags_${userId}`);
+            return raw ? JSON.parse(raw) : [];
+        } catch { return []; }
+    };
+
+    useEffect(() => {
+        if (!user?.id) return;
+        fetchCalls();
+
+        if (socket) {
+            const onNewCallLog = (newCall) => {
+                setCalls(prev => [newCall, ...prev]);
+            };
+            socket.on('call_log_added', onNewCallLog);
+            return () => {
+                socket.off('call_log_added', onNewCallLog);
+            };
+        }
+    }, [user?.id, socket]);
+
+    const fetchCalls = async () => {
+        setLoading(true);
+        try {
+            const res = await fetch(`http://localhost:3001/calls/${user.id}`);
+            if (res.ok) {
+                const data = await res.json();
+                setCalls(Array.isArray(data) ? data : []);
+            }
+        } catch (err) {
+            console.error("Failed to fetch calls", err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const deleteCall = async (callId, e) => {
+        e.stopPropagation();
+        try {
+            await fetch(`http://localhost:3001/calls/${callId}`, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: user.id })
+            });
+            setCalls(prev => prev.filter(c => c.id !== callId));
+        } catch (err) {
+            console.error("Failed to delete call", err);
+        }
+    };
+
+    const getOtherParticipantId = (call) => {
+        if (String(call.callerId) === String(user.id)) {
+            return call.participants[0] || 'Unknown';
+        } else {
+            return call.callerId;
+        }
+    };
+
+    const getFriendDetails = (id) => {
+        const friend = friends.find(f => String(f.id) === String(id));
+        if (friend) return friend;
+        const online = onlineUsers.find(u => String(u.id) === String(id));
+        if (online) return online;
+        return { username: 'Unknown User', avatar: null, id };
+    };
+
+    // Format helpers
+    const formatTime = (timestamp) => {
+        return new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+    };
+
+    const formatDuration = (seconds) => {
+        if (!seconds) return '00:00';
+        const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+        const s = (seconds % 60).toString().padStart(2, '0');
+        return `${m}:${s}`;
+    };
+
+    // Filter logic
+    const filteredCalls = calls.filter(call => {
+        // Tab logic (mocked mostly, mapping External to everything for now)
+        if (activeTab === 'Missed yesterday' || activeTab === 'Missed Vip') {
+            // Simplified: just show missed for demo if strictly adhering, but let's keep it broad for now
+        }
+
+        // Sub-filter
+        if (filter === 'Missed' && call.status !== 'missed') return false;
+        if (filter === 'Incoming') {
+            const isIncoming = String(call.callerId) !== String(user.id);
+            if (!isIncoming) return false;
+        }
+        if (filter === 'Outgoing') {
+            const isOutgoing = String(call.callerId) === String(user.id);
+            if (!isOutgoing) return false;
+        }
+
+        // Search
+        if (searchTerm) {
+            const otherId = getOtherParticipantId(call);
+            const friend = getFriendDetails(otherId);
+            return friend.username.toLowerCase().includes(searchTerm.toLowerCase());
+        }
+        return true;
+    }).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+
+    // Counts for chips
+    const countAll = calls.length;
+    const countMissed = calls.filter(c => c.status === 'missed').length;
+    const countIncoming = calls.filter(c => String(c.callerId) !== String(user.id)).length;
+    const countOutgoing = calls.filter(c => String(c.callerId) === String(user.id)).length;
+
+
+    // Group calls by Date (Mocking "Wednesday, 13 June 2022" style)
+    const groupedCalls = filteredCalls.reduce((acc, call) => {
+        const date = new Date(call.timestamp);
+        const dayStr = date.toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+        if (!acc[dayStr]) acc[dayStr] = [];
+        acc[dayStr].push(call);
+        return acc;
+    }, {});
+
+
+    return (
+        <div className="calls-panel-redesign" style={{
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+            background: 'var(--bg-card)', // Designed for white or dark card bg
+            color: 'var(--text-primary)',
+            fontFamily: 'Inter, sans-serif'
+        }}>
+            <style>{`
+                .calls-panel-redesign button, .calls-panel-redesign input {
+                    font-family: 'Inter', sans-serif;
+                }
+                 /* Scrollbar styling for the list */
+                .calls-list-scroll::-webkit-scrollbar {
+                    width: 6px;
+                }
+                .calls-list-scroll::-webkit-scrollbar-track {
+                    background: transparent;
+                }
+                .calls-list-scroll::-webkit-scrollbar-thumb {
+                    background: var(--border-color);
+                    border-radius: 3px;
+                }
+           `}</style>
+            {/* Top Bar: Title & Tabs */}
+            <div style={{
+                padding: '20px 32px 0 32px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '40px',
+                borderBottom: '1px solid var(--border-color)'
+            }}>
+                <h2 style={{ fontSize: '1.5rem', fontWeight: 800, margin: '0 0 20px 0', whiteSpace: 'nowrap' }}>Calls History</h2>
+
+
+            </div>
+
+            {/* Controls Row */}
+            <div style={{
+                padding: '20px 32px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '16px'
+            }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                    {/* Date Picker Mock */}
+                    <button style={{
+                        background: 'transparent', border: '1px solid var(--border-color)', borderRadius: '8px',
+                        padding: '8px 12px', display: 'flex', alignItems: 'center', gap: '8px',
+                        color: 'var(--text-primary)', fontWeight: 600, fontSize: '0.9rem', cursor: 'pointer'
+                    }}>
+                        <FiCalendar size={16} color="var(--text-secondary)" />
+                        {dateRange}
+                        <div style={{ width: 0, height: 0, borderLeft: '4px solid transparent', borderRight: '4px solid transparent', borderTop: '4px solid var(--text-secondary)' }} />
+                    </button>
+
+                    {/* Filter Chips */}
+                    <div style={{ display: 'flex', background: 'var(--bg-secondary)', borderRadius: '8px', padding: '4px' }}>
+                        {[
+                            { label: 'All', count: countAll },
+                            { label: 'Missed', count: countMissed },
+                            { label: 'Incoming', count: countIncoming }, // Mapping Incoming to 'Incoming'
+                            { label: 'Outgoing', count: countOutgoing }
+                        ].map(f => (
+                            <button
+                                key={f.label}
+                                onClick={() => setFilter(f.label)}
+                                style={{
+                                    border: 'none',
+                                    background: filter === f.label ? 'var(--bg-card)' : 'transparent',
+                                    color: filter === f.label ? 'var(--text-primary)' : 'var(--text-secondary)',
+                                    borderRadius: '6px',
+                                    padding: '6px 16px',
+                                    fontSize: '0.9rem',
+                                    fontWeight: 600,
+                                    cursor: 'pointer',
+                                    boxShadow: filter === f.label ? '0 1px 2px rgba(0,0,0,0.1)' : 'none',
+                                    transition: 'all 0.2s'
+                                }}
+                            >
+                                {f.label} <span style={{ opacity: 0.6, fontSize: '0.85em', marginLeft: '4px' }}>({f.count})</span>
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* Filters Dropdown */}
+                    <button style={{
+                        background: 'var(--bg-secondary)', border: 'none', borderRadius: '8px',
+                        padding: '10px 16px', display: 'flex', alignItems: 'center', gap: '8px',
+                        color: 'var(--text-primary)', fontWeight: 600, cursor: 'pointer'
+                    }}>
+                        Filters <FiFilter size={14} style={{ fill: 'currentColor' }} />
+                    </button>
+                </div>
+
+                {/* Right Side Icons */}
+                <div style={{ display: 'flex', gap: '12px' }}>
+                    <button className="icon-btn-circle"><FiSearch size={18} /></button>
+                    <button className="icon-btn-circle"><FiDownload size={18} /></button>
+                    <button className="icon-btn-circle"><FiPlus size={18} /></button>
+                    <button className="icon-btn-circle"><FiMoreHorizontal size={18} /></button>
+                </div>
+            </div>
+
+            {/* Table Header */}
+            <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'minmax(250px, 1.5fr) 100px 100px 100px 1.2fr 40px 50px',
+                padding: '12px 32px',
+                color: 'var(--text-secondary)',
+                fontSize: '0.85rem',
+                fontWeight: 600,
+                borderBottom: '1px solid var(--border-color)',
+                alignItems: 'center'
+            }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ width: 16, height: 16 }} /> Client
+                </div>
+                <div>Time</div>
+                <div>Waiting</div>
+                <div>Duration</div>
+                <div>Tags</div>
+                <div></div> {/* Play btn spacer */}
+                <div></div> {/* Call Back spacer */}
+            </div>
+
+            {/* Scrollable List */}
+            <div style={{ flex: 1, overflowY: 'auto' }}>
+                {Object.entries(groupedCalls).map(([dateLabel, dayCalls]) => (
+                    <div key={dateLabel}>
+                        <div style={{
+                            padding: '24px 32px 12px 32px',
+                            fontSize: '0.95rem', fontWeight: 800,
+                            color: 'var(--text-primary)'
+                        }}>
+                            {dateLabel}
+                        </div>
+                        {dayCalls.map(call => {
+                            const otherId = getOtherParticipantId(call);
+                            const friend = getFriendDetails(otherId);
+                            const isOutgoing = String(call.callerId) === String(user.id);
+                            const isMissed = call.status === 'missed';
+
+                            // Status Icon
+                            let StatusIcon = FiArrowLeft; // Incoming default
+                            let statusColor = '#3b82f6'; // Blue for incoming
+                            if (isOutgoing) {
+                                StatusIcon = FiArrowRight;
+                                statusColor = '#22c55e'; // Green
+                            }
+                            if (isMissed) {
+                                StatusIcon = FiX; // Or a specific missed icon
+                                statusColor = '#ef4444'; // Red
+                            }
+                            if (call.status === 'rejected' || call.status === 'busy') {
+                                StatusIcon = FiX;
+                                statusColor = '#ef4444';
+                            }
+
+                            return (
+                                <div key={call.id} style={{
+                                    display: 'grid',
+                                    gridTemplateColumns: 'minmax(250px, 1.5fr) 100px 100px 100px 1.2fr 40px 50px', // Adjusted columns
+                                    padding: '14px 32px',
+                                    alignItems: 'center',
+                                    borderBottom: '1px solid var(--border-color)',
+                                    fontSize: '0.9rem',
+                                    color: 'var(--text-primary)',
+                                    transition: 'background 0.2s'
+                                }}
+                                    className="call-row"
+                                    onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-secondary)'}
+                                    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                                >
+                                    {/* Client */}
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                                        <StatusIcon size={16} color={statusColor} style={{ flexShrink: 0 }} />
+                                        <Avatar src={friend.avatar} alt={friend.username} style={{ width: '32px', height: '32px', borderRadius: '50%' }} />
+                                        <span style={{ fontWeight: 600 }}>{friend.username}</span>
+                                    </div>
+
+                                    {/* Time */}
+                                    <div>{formatTime(call.timestamp)}</div>
+
+                                    {/* Waiting (Mock) */}
+                                    <div style={{ color: 'var(--text-secondary)' }}>00:05</div>
+
+                                    {/* Duration */}
+                                    <div style={isMissed ? { color: '#ef4444' } : {}}>{isMissed ? '00:00' : formatDuration(call.duration)}</div>
+
+                                    {/* Tags */}
+                                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                        {/* Tags - Real data from localStorage */}
+                                        {getTagsForUser(otherId).map((t, idx) => (
+                                            <span key={idx} style={{
+                                                background: t.color || '#e0f2fe', color: t.text || '#0369a1',
+                                                padding: '4px 10px', borderRadius: '12px',
+                                                fontSize: '0.75rem', fontWeight: 600,
+                                                whiteSpace: 'nowrap'
+                                            }}>
+                                                {t.label}
+                                            </span>
+                                        ))}
+                                        {/* Fallback/Mock tags if none set */}
+                                        {getTagsForUser(otherId).length === 0 && (
+                                            isMissed ?
+                                                <span style={{ background: '#fef2f2', color: '#dc2626', padding: '4px 8px', borderRadius: '8px', fontSize: '0.75rem' }}>Callback</span>
+                                                : null
+                                        )}
+                                    </div>
+
+                                    {/* Play Action Column */}
+                                    <div style={{ display: 'flex', justifyContent: 'center' }}>
+                                        {!isMissed && (recordings[call.id] || recordings.latest) && (
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    const url = recordings[call.id] || recordings.latest;
+                                                    if (url) setActivePlayer({ callId: call.id, isPlaying: true, progress: 0, url });
+                                                }}
+                                                style={{
+                                                    background: 'transparent', border: 'none', cursor: 'pointer',
+                                                    color: 'var(--text-secondary)', display: 'flex', alignItems: 'center'
+                                                }}
+                                                title="Play Recording"
+                                            >
+                                                <FiPlay size={18} fill="currentColor" />
+                                            </button>
+                                        )}
+                                    </div>
+
+                                    {/* Call Back Actions Column */}
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        {call.type === 'video' ? (
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    onStartCall({ ...friend, isVideo: true });
+                                                }}
+                                                className="icon-btn-circle"
+                                                style={{
+                                                    width: '32px', height: '32px', color: '#fff', background: '#3b82f6',
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0
+                                                }}
+                                                title="Video Call Back"
+                                            >
+                                                <FiVideo size={16} />
+                                            </button>
+                                        ) : (
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    onStartCall({ ...friend, isVideo: false });
+                                                }}
+                                                className="icon-btn-circle"
+                                                style={{
+                                                    width: '32px', height: '32px', color: '#fff', background: '#22c55e',
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0
+                                                }}
+                                                title="Audio Call Back"
+                                            >
+                                                <FiPhone size={16} />
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                ))}
+            </div>
+
+            {/* Floating Player (Always Visible as requested) */}
+            {true && (
+                <div style={{
+                    position: 'absolute', bottom: '30px', left: '50%', transform: 'translateX(-50%)',
+                    width: '600px', height: '60px', borderRadius: '30px',
+                    background: 'var(--float-player-bg)', // Uses CSS variable for theme switching
+                    border: '1px solid var(--border-color)',
+                    backdropFilter: 'blur(16px)', // Liquid glassy blur
+                    WebkitBackdropFilter: 'blur(16px)',
+                    color: 'var(--text-primary)',
+                    display: 'flex', alignItems: 'center', padding: '0 20px',
+                    boxShadow: '0 10px 40px rgba(0,0,0,0.3)', zIndex: 100,
+                    gap: '16px',
+                    opacity: activePlayer.url ? 1 : 0.7, // Dim if inactive
+                    pointerEvents: activePlayer.url ? 'auto' : 'none' // Disable if no music
+                }}>
+                    <button
+                        onClick={() => setActivePlayer(p => ({ ...p, isPlaying: !p.isPlaying }))}
+                        style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)', cursor: 'pointer' }}
+                    >
+                        {activePlayer.isPlaying ? <FiPause size={20} fill="currentColor" /> : <FiPlay size={20} fill="currentColor" />}
+                    </button>
+
+                    <span style={{ fontSize: '0.85rem', fontWeight: 500, minWidth: '40px' }}>00:23</span>
+
+                    {/* Waveform Visualization - Theme Colored */}
+                    <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '3px', height: '24px' }}>
+                        {Array.from({ length: 40 }).map((_, i) => (
+                            <div key={i} style={{
+                                width: '3px',
+                                height: activePlayer.isPlaying ? `${Math.random() * 20 + 4}px` : '4px',
+                                background: 'var(--accent-primary)', // Theme color
+                                borderRadius: '2px',
+                                transition: 'height 0.1s ease'
+                            }} />
+                        ))}
+                    </div>
+
+                    <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', minWidth: '40px' }}>02:38</span>
+
+                    <FiVolume2 size={20} color="var(--text-secondary)" style={{ cursor: 'pointer' }} />
+                    <button className="icon-btn-circle" style={{
+                        border: 'none', background: 'transparent',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0
+                    }} onClick={() => {
+                        const a = document.createElement('a');
+                        a.href = activePlayer.url;
+                        a.download = `recording-${Date.now()}.webm`;
+                        a.click();
+                    }}>
+                        <FiDownload size={20} color="var(--text-secondary)" style={{ cursor: 'pointer' }} />
+                    </button>
+                    <FiX
+                        size={20}
+                        color="var(--text-secondary)"
+                        style={{ cursor: 'pointer', marginLeft: '8px' }}
+                        onClick={() => setActivePlayer({ ...activePlayer, url: null, isPlaying: false })}
+                    />
+
+                    {/* Hidden Audio Element for Functional Logic */}
+                    <audio
+                        ref={audioRef}
+                        src={activePlayer.url}
+                        onEnded={() => setActivePlayer(p => ({ ...p, isPlaying: false }))}
+                        onTimeUpdate={(e) => setActivePlayer(prev => ({ ...prev, progress: e.target.currentTime }))}
+                    />
+                </div>
+            )}
+
+
+            {/* Hidden original floating player removed in favor of persistent bar */}
+            {
+                false && (
+                    <div />
+                )
+            }
+
+            <style>{`
+                .icon-btn-circle {
+                    width: 40px; height: 40px; border-radius: 50%;
+                    border: none; background: transparent;
+                    display: flex; alignItems: center; justifyContent: center;
+                    cursor: pointer; color: var(--text-secondary);
+                    transition: background 0.2s;
+                }
+                .icon-btn-circle:hover {
+                    background: var(--bg-secondary);
+                    color: var(--text-primary);
+                }
+                .call-row:hover .delete-btn {
+                    opacity: 1;
+                }
+            `}</style>
+        </div >
+    );
+}
+
+export default CallsPanel;

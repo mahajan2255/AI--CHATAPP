@@ -1,0 +1,151 @@
+import React, { useState } from 'react';
+import { FiX, FiGlobe, FiLock, FiCamera } from 'react-icons/fi';
+import Avatar from './Avatar';
+
+// Local Avatar component removed
+
+function CreateChannelModal({ onClose, onCreate }) {
+    const [name, setName] = useState("");
+    const [description, setDescription] = useState("");
+    const [visibility, setVisibility] = useState("Public"); // Public, Private
+    const [photo, setPhoto] = useState("");
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        if (!name.trim()) return;
+        onCreate({ name, description, visibility, photo });
+        onClose();
+    };
+
+    const handlePhotoUpload = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const formData = new FormData();
+        formData.append('file', file);
+        try {
+            const res = await fetch('http://localhost:3001/upload', { method: 'POST', body: formData });
+            const data = await res.json();
+            setPhoto(`http://localhost:3001${data.filePath}`);
+        } catch (err) {
+
+        }
+    };
+
+    return (
+        <div className="modal-overlay" style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+            display: 'flex', justifyContent: 'center', alignItems: 'center',
+            zIndex: 1000
+        }}>
+            <div className="modal-content" style={{
+                background: 'var(--bg-secondary)',
+                padding: '24px',
+                borderRadius: '16px',
+                width: '400px',
+                maxWidth: '90%',
+                position: 'relative',
+                boxShadow: '0 10px 30px rgba(0,0,0,0.35)',
+                border: '1px solid var(--border-color)'
+            }}>
+                <button onClick={onClose} style={{
+                    position: 'absolute', top: '16px', right: '16px',
+                    background: 'none', border: 'none',
+                    color: 'var(--text-secondary)', cursor: 'pointer'
+                }}>
+                    <FiX size={24} />
+                </button>
+
+                <h2 style={{ margin: '0 0 20px 0', color: 'var(--text-primary)' }}>Create Channel</h2>
+
+                <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    {/* Photo Upload */}
+                    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '10px' }}>
+                        <label style={{ cursor: 'pointer', position: 'relative' }}>
+                            <div style={{
+                                width: '80px', height: '80px', borderRadius: '50%',
+                                background: 'var(--bg-input)', border: '1px dashed var(--text-secondary)',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                overflow: 'hidden'
+                            }}>
+                                {photo ? (
+                                    <Avatar src={photo} alt="Channel" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                ) : (
+                                    <FiCamera size={24} color="var(--text-secondary)" />
+                                )}
+                            </div>
+                            <input type="file" accept="image/*,video/*" onChange={handlePhotoUpload} style={{ display: 'none' }} />
+                        </label>
+                    </div>
+
+                    <div>
+                        <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Channel Name</label>
+                        <input
+                            type="text"
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                            placeholder="e.g. Announcements"
+                            style={{
+                                width: '100%', padding: '10px 12px', borderRadius: '10px',
+                                border: '1px solid var(--border-color)', background: 'var(--bg-panel)',
+                                color: 'var(--text-primary)'
+                            }}
+                            required
+                        />
+                    </div>
+
+                    <div>
+                        <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Description (Optional)</label>
+                        <textarea
+                            value={description}
+                            onChange={(e) => setDescription(e.target.value)}
+                            placeholder="What is this channel about?"
+                            style={{
+                                width: '100%', padding: '10px 12px', borderRadius: '10px',
+                                border: '1px solid var(--border-color)', background: 'var(--bg-panel)',
+                                color: 'var(--text-primary)', minHeight: '80px', resize: 'vertical'
+                            }}
+                        />
+                    </div>
+
+                    <div>
+                        <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Visibility</label>
+                        <div style={{ display: 'flex', gap: '10px' }}>
+                            <button type="button"
+                                onClick={() => setVisibility('Public')}
+                                style={{
+                                    flex: 1, padding: '10px', borderRadius: '10px',
+                                    border: `1px solid ${visibility === 'Public' ? 'var(--accent-primary)' : 'var(--border-color)'}`,
+                                    background: visibility === 'Public' ? 'var(--accent-light)' : 'transparent',
+                                    color: visibility === 'Public' ? 'var(--accent-primary)' : 'var(--text-secondary)',
+                                    cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px'
+                                }}
+                            >
+                                <FiGlobe /> Public
+                            </button>
+                            <button type="button"
+                                onClick={() => setVisibility('Private')}
+                                style={{
+                                    flex: 1, padding: '10px', borderRadius: '10px',
+                                    border: `1px solid ${visibility === 'Private' ? 'var(--accent-primary)' : 'var(--border-color)'}`,
+                                    background: visibility === 'Private' ? 'var(--accent-light)' : 'transparent',
+                                    color: visibility === 'Private' ? 'var(--accent-primary)' : 'var(--text-secondary)',
+                                    cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px'
+                                }}
+                            >
+                                <FiLock /> Private
+                            </button>
+                        </div>
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px' }}>
+                        <button type="button" onClick={onClose} className="btn-secondary" style={{ padding: '10px 20px', borderRadius: '10px', background: 'transparent', border: '1px solid var(--border-color)', color: 'var(--text-primary)', cursor: 'pointer' }}>Cancel</button>
+                        <button type="submit" className="btn-primary" style={{ padding: '10px 20px', borderRadius: '10px', background: 'var(--accent-primary)', border: 'none', color: '#fff', cursor: 'pointer' }}>Create Channel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+}
+
+export default CreateChannelModal;

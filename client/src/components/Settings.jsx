@@ -1,0 +1,277 @@
+import React, { useState, useRef } from 'react';
+import { FiMoon, FiSun, FiLogOut, FiBell, FiLock, FiShield, FiImage, FiFileText, FiCommand, FiHelpCircle, FiCamera, FiEdit2, FiSmile, FiCheck, FiX, FiChevronLeft } from 'react-icons/fi';
+import EmojiPicker from 'emoji-picker-react';
+import Avatar from './Avatar';
+
+function Settings({ user, theme, toggleTheme, onLogout, socket }) {
+    const [activeSection, setActiveSection] = useState('profile');
+    const [isEditing, setIsEditing] = useState(false);
+    const [editName, setEditName] = useState(user.username);
+    const [editAbout, setEditAbout] = useState(user.about || "Hey there! I am using Chat App.");
+    const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+    const fileInputRef = useRef(null);
+    const [accent, setAccent] = useState(localStorage.getItem('chat_accent') || '#4949eeff');
+
+    const handleAvatarClick = () => {
+        fileInputRef.current.click();
+    };
+
+    const handleFileChange = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            const response = await fetch('http://localhost:3001/upload', { method: 'POST', body: formData });
+            const data = await response.json();
+            const newAvatarUrl = `http://localhost:3001${data.filePath}`;
+
+            socket.emit('update_profile', {
+                userId: user.id,
+                avatar: newAvatarUrl
+            });
+        } catch (error) {
+
+        }
+    };
+
+    const saveProfile = () => {
+        socket.emit('update_profile', {
+            userId: user.id,
+            username: editName,
+            about: editAbout
+        });
+        setIsEditing(false);
+    };
+
+    const hexToRgba = (hex, alpha) => {
+        let h = hex.replace('#', '');
+        if (h.length === 8) h = h.substring(0, 6);
+        if (h.length === 3) h = h.split('').map(c => c + c).join('');
+        const r = parseInt(h.substring(0, 2), 16);
+        const g = parseInt(h.substring(2, 4), 16);
+        const b = parseInt(h.substring(4, 6), 16);
+        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    };
+
+    const applyAccent = (val) => {
+        setAccent(val);
+        localStorage.setItem('chat_accent', val);
+        const root = document.documentElement;
+        root.style.setProperty('--accent-primary', val);
+        root.style.setProperty('--accent-light', hexToRgba(val, 0.15));
+        window.dispatchEvent(new Event('force_sidebar_refresh'));
+    };
+
+    const menuItems = [
+        { id: 'notifications', icon: <FiBell />, label: 'Notifications' },
+        { id: 'privacy', icon: <FiLock />, label: 'Privacy' },
+        { id: 'security', icon: <FiShield />, label: 'Security' },
+        { id: 'theme', icon: theme === 'light' ? <FiMoon /> : <FiSun />, label: 'Theme' },
+        { id: 'wallpaper', icon: <FiImage />, label: 'Chat Wallpaper' },
+        { id: 'account_info', icon: <FiFileText />, label: 'Request Account Info' },
+        { id: 'shortcuts', icon: <FiCommand />, label: 'Keyboard shortcuts' },
+        { id: 'help', icon: <FiHelpCircle />, label: 'Help' },
+    ];
+
+    return (
+        <div className="settings-container" style={{ display: 'flex', width: '100%', height: '100%', background: 'var(--bg-app)', color: 'var(--text-primary)' }}>
+            {/* Settings Sidebar */}
+            <div className="settings-sidebar" style={{ width: '300px', borderRight: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', background: 'var(--bg-panel)' }}>
+                <div style={{ padding: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div onClick={() => setActiveSection('profile')} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                        <FiChevronLeft size={24} style={{ marginRight: '10px', display: 'none' }} /> {/* Placeholder for mobile back */}
+                    </div>
+                    <h2 style={{ margin: 0, fontSize: '1.5rem' }}>Settings</h2>
+                </div>
+
+                {/* Profile Summary in Sidebar */}
+                <div style={{ padding: '20px', display: 'flex', alignItems: 'center', gap: '15px', borderBottom: '1px solid var(--border-color)', cursor: 'pointer', background: activeSection === 'profile' ? 'var(--bg-secondary)' : 'transparent' }} onClick={() => setActiveSection('profile')}>
+                    <Avatar src={user.avatar} alt="Profile" style={{ width: '50px', height: '50px', borderRadius: '50%', objectFit: 'cover' }} />
+                    <div style={{ overflow: 'hidden' }}>
+                        <h3 style={{ margin: 0, fontSize: '1rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user.username}</h3>
+                        <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user.about || "Available"}</p>
+                    </div>
+                </div>
+
+                <div style={{ flex: 1, overflowY: 'auto', padding: '10px 0' }}>
+                    {menuItems.map(item => (
+                        <div
+                            key={item.id}
+                            onClick={() => setActiveSection(item.id)}
+                            style={{
+                                padding: '15px 20px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '15px',
+                                cursor: 'pointer',
+                                background: activeSection === item.id ? 'var(--bg-secondary)' : 'transparent',
+                                color: activeSection === item.id ? 'var(--accent-primary)' : 'var(--text-primary)',
+                                transition: 'background 0.2s'
+                            }}
+                        >
+                            <span style={{ fontSize: '1.2rem' }}>{item.icon}</span>
+                            <span style={{ fontSize: '1rem' }}>{item.label}</span>
+                        </div>
+                    ))}
+                </div>
+
+                <div style={{ padding: '20px', borderTop: '1px solid var(--border-color)' }}>
+                    <div
+                        onClick={onLogout}
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '15px',
+                            cursor: 'pointer',
+                            color: '#ff6b6b'
+                        }}
+                    >
+                        <FiLogOut size={20} />
+                        <span>Logout</span>
+                    </div>
+                </div>
+            </div>
+
+            {/* Main Content Area */}
+            <div className="settings-content" style={{ flex: 1, padding: '40px', overflowY: 'auto', display: 'flex', justifyContent: 'center', alignItems: 'flex-start' }}>
+                {activeSection === 'profile' ? (
+                    <ProfileSettings
+                        user={user}
+                        isEditing={isEditing}
+                        setIsEditing={setIsEditing}
+                        editName={editName}
+                        setEditName={setEditName}
+                        editAbout={editAbout}
+                        setEditAbout={setEditAbout}
+                        showEmojiPicker={showEmojiPicker}
+                        setShowEmojiPicker={setShowEmojiPicker}
+                        fileInputRef={fileInputRef}
+                        handleAvatarClick={handleAvatarClick}
+                        handleFileChange={handleFileChange}
+                        saveProfile={saveProfile}
+                    />
+                ) : activeSection === 'theme' ? (
+                    <div style={{ width: '100%', maxWidth: '720px' }}>
+                        <h2 style={{ marginTop: 0 }}>Theme</h2>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
+                            <span>Mode</span>
+                            <button onClick={toggleTheme} style={{ border: '1px solid var(--border-color)', background: 'var(--bg-panel)', color: 'var(--text-primary)', borderRadius: '12px', padding: '8px 12px', cursor: 'pointer' }}>
+                                {theme === 'light' ? 'Switch to Dark' : 'Switch to Light'}
+                            </button>
+                        </div>
+                        <div style={{ marginTop: '10px' }}>
+                            <div style={{ marginBottom: '10px' }}>Accent color</div>
+                            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                                {[
+                                    { name: 'Red', val: '#ef4444' },
+                                    { name: 'Pink', val: '#ec4899' },
+                                    { name: 'Blue', val: '#4949eeff' },
+                                    { name: 'Green', val: '#22c55e' },
+                                    { name: 'Yellow', val: '#f59e0b' },
+                                    { name: 'Cyan', val: '#06b6d4' },
+                                ].map(c => (
+                                    <button key={c.name} onClick={() => applyAccent(c.val)} style={{ width: '38px', height: '38px', borderRadius: '50%', border: accent === c.val ? '3px solid var(--text-primary)' : '2px solid var(--border-color)', background: c.val, cursor: 'pointer' }} title={c.name} />
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                ) : (
+                    <div style={{ textAlign: 'center', marginTop: '100px', opacity: 0.5 }}>
+                        <div style={{ fontSize: '5rem', marginBottom: '20px', color: 'var(--accent-primary)' }}>
+                            {menuItems.find(i => i.id === activeSection)?.icon}
+                        </div>
+                        <h2>{menuItems.find(i => i.id === activeSection)?.label}</h2>
+                        <p>This section is under construction.</p>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
+function ProfileSettings({ user, isEditing, setIsEditing, editName, setEditName, editAbout, setEditAbout, showEmojiPicker, setShowEmojiPicker, fileInputRef, handleAvatarClick, handleFileChange, saveProfile }) {
+    return (
+        <div style={{ width: '100%', maxWidth: '600px' }}>
+            <div style={{ marginBottom: '40px', display: 'flex', alignItems: 'center', gap: '20px' }}>
+                <div style={{ position: 'relative', cursor: 'pointer' }} onClick={handleAvatarClick}>
+                    <Avatar src={user.avatar} alt="Profile" style={{ width: '120px', height: '120px', borderRadius: '50%', objectFit: 'cover', border: '4px solid var(--bg-panel)', boxShadow: '0 4px 20px rgba(0,0,0,0.2)' }} />
+                    <div style={{ position: 'absolute', bottom: '5px', right: '5px', background: 'var(--accent-primary)', color: 'white', padding: '8px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 10px rgba(0,0,0,0.2)' }}>
+                        <FiCamera size={18} />
+                    </div>
+                    <input type="file" ref={fileInputRef} onChange={handleFileChange} style={{ display: 'none' }} accept="image/*,video/*" />
+                </div>
+                <div>
+                    <h2 style={{ margin: 0, fontSize: '2rem' }}>{user.username}</h2>
+                    <p style={{ margin: '5px 0 0 0', color: 'var(--text-secondary)' }}>User ID: {user.id}</p>
+                </div>
+            </div>
+
+            <div className="settings-card" style={{ background: 'var(--bg-panel)', borderRadius: '16px', padding: '24px', boxShadow: '0 4px 20px rgba(0,0,0,0.05)', border: '1px solid var(--border-color)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                    <h3 style={{ margin: 0 }}>Personal Info</h3>
+                    {!isEditing ? (
+                        <button onClick={() => setIsEditing(true)} className="btn-icon" style={{ color: 'var(--accent-primary)' }}>
+                            <FiEdit2 size={20} />
+                        </button>
+                    ) : (
+                        <div style={{ display: 'flex', gap: '10px' }}>
+                            <button onClick={() => setIsEditing(false)} className="btn-icon" style={{ color: '#ff6b6b' }}>
+                                <FiX size={20} />
+                            </button>
+                            <button onClick={saveProfile} className="btn-icon" style={{ color: 'var(--status-online)' }}>
+                                <FiCheck size={20} />
+                            </button>
+                        </div>
+                    )}
+                </div>
+
+                <div style={{ marginBottom: '20px' }}>
+                    <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Username</label>
+                    {isEditing ? (
+                        <input
+                            type="text"
+                            value={editName}
+                            onChange={(e) => setEditName(e.target.value)}
+                            style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-app)', color: 'var(--text-primary)', fontSize: '1rem' }}
+                        />
+                    ) : (
+                        <div style={{ fontSize: '1.1rem', fontWeight: 500 }}>{user.username}</div>
+                    )}
+                </div>
+
+
+
+                <div style={{ marginBottom: '20px', position: 'relative' }}>
+                    <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>About</label>
+                    {isEditing ? (
+                        <div style={{ position: 'relative' }}>
+                            <textarea
+                                value={editAbout}
+                                onChange={(e) => setEditAbout(e.target.value)}
+                                style={{ width: '100%', padding: '12px', paddingRight: '40px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-app)', color: 'var(--text-primary)', fontSize: '1rem', minHeight: '100px', resize: 'none' }}
+                            />
+                            <div style={{ position: 'absolute', bottom: '12px', right: '12px', cursor: 'pointer', color: 'var(--text-secondary)' }} onClick={() => setShowEmojiPicker(!showEmojiPicker)}>
+                                <FiSmile size={20} />
+                            </div>
+                            {showEmojiPicker && (
+                                <div style={{ position: 'absolute', bottom: '100%', right: 0, zIndex: 100 }}>
+                                    <EmojiPicker onEmojiClick={(emojiData) => {
+                                        setEditAbout(prev => prev + emojiData.emoji);
+                                        setShowEmojiPicker(false);
+                                    }} theme="dark" />
+                                </div>
+                            )}
+                        </div>
+                    ) : (
+                        <div style={{ fontSize: '1.1rem', lineHeight: '1.5' }}>{user.about || "Hey there! I am using Chat App."}</div>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+}
+
+export default Settings;

@@ -1,0 +1,3799 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { motion } from 'framer-motion';
+import { createPortal } from 'react-dom';
+import { FiUserPlus, FiUsers, FiGlobe, FiSearch, FiPlus, FiMoreVertical, FiX, FiCheck, FiTrash2, FiImage, FiBellOff, FiEdit2, FiArchive, FiInfo, FiLink, FiChevronDown, FiChevronUp, FiHash, FiArrowLeft, FiUpload } from 'react-icons/fi';
+import { BsPin, BsPinFill } from 'react-icons/bs';
+import StoryViewer from './StoryViewer';
+import CreateCommunityModal from './CreateCommunityModal';
+import CreateChannelModal from './CreateChannelModal';
+import Avatar from './Avatar';
+import StoryUploadModal from './StoryUploadModal';
+
+// Local Avatar component removed in favor of imported one
+
+function Sidebar({ socket, user, statusList, onSelectChat, currentChat, unseenMessages, onlineUsers, theme, toggleTheme, friends, groups = [], communities = [], channels = [], channelAlerts = {}, callState }) {
+    const [requests, setRequests] = useState([]);
+    const [showAddFriend, setShowAddFriend] = useState(false);
+    const [addFriendUsername, setAddFriendUsername] = useState("");
+    const [userSuggestions, setUserSuggestions] = useState([]);
+    const [suggestionsOpen, setSuggestionsOpen] = useState(false);
+    const [suggLoading, setSuggLoading] = useState(false);
+    const [suggHighlight, setSuggHighlight] = useState(-1);
+    const [statusFile, setStatusFile] = useState(null);
+    const [showStatusInput, setShowStatusInput] = useState(false);
+    const fileInputRef = useRef(null);
+
+    const handleStatusFileSelect = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            setStatusFile(file);
+        }
+    };
+
+    // Community States
+    const [showCreateCommunity, setShowCreateCommunity] = useState(false);
+    const [expandedCommunities, setExpandedCommunities] = useState([]);
+    const [showAddGroupModal, setShowAddGroupModal] = useState(false);
+    const [selectedCommunityId, setSelectedCommunityId] = useState(null);
+
+    // Channel States
+    const [showCreateChannel, setShowCreateChannel] = useState(false);
+    const [isChannelsExpanded, setIsChannelsExpanded] = useState(true);
+
+    // Group States
+    const [showCreateGroup, setShowCreateGroup] = useState(false);
+    const [groupName, setGroupName] = useState("");
+    const [selectedMembers, setSelectedMembers] = useState([]);
+    const [groupAbout, setGroupAbout] = useState("");
+    const [isGroupsExpanded, setIsGroupsExpanded] = useState(false);
+    const [pinnedGroups, setPinnedGroups] = useState(JSON.parse(localStorage.getItem('pinned_groups') || '[]'));
+    const [openMenuId, setOpenMenuId] = useState(null); // For dropdowns
+    const [contextMenu, setContextMenu] = useState(null); // deprecated right-click menu
+    const [deleteConfirm, setDeleteConfirm] = useState(null); // { x, y, communityId }
+    const [isEditMode, setIsEditMode] = useState(false);
+
+    // Archive States
+    const [archivedItems, setArchivedItems] = useState([]); // [{ type: 'friend'|'group'|'community', id: string }]
+    const [archiveLoaded, setArchiveLoaded] = useState(false);
+    const [showArchiveModal, setShowArchiveModal] = useState(false);
+    const [showUnarchiveModal, setShowUnarchiveModal] = useState(false);
+    const [archiveSearch, setArchiveSearch] = useState("");
+    const [isArchivesExpanded, setIsArchivesExpanded] = useState(true);
+    const [isCommunitiesSectionExpanded, setIsCommunitiesSectionExpanded] = useState(true);
+    const [search, setSearch] = useState("");
+    const [showOnlineOnly, setShowOnlineOnly] = useState(false);
+    const [showUnreadOnly, setShowUnreadOnly] = useState(false);
+    const [showFilterMenu, setShowFilterMenu] = useState(false);
+    const [refreshTick, setRefreshTick] = useState(0);
+    // Top filter pills
+    const [topFilter, setTopFilter] = useState('All'); // All | Friends | Favourites | Groups | Communities | Channels
+    const [activeSection, setActiveSection] = useState(null); // null | 'Channels' | 'Archives' | 'Communities' | 'Friends' | 'Groups'
+    // Favorites & pins for friends
+    const favKey = `fav_friends_${user?.id}`;
+    const pinKey = `pinned_friends_${user?.id}`;
+    const muteKey = (id) => `mute_contact_${id}`;
+    const blockKey = (id) => `block_contact_${id}`;
+    const [favourites, setFavourites] = useState(() => {
+        try { return JSON.parse(localStorage.getItem(favKey) || '[]'); } catch (_) { return []; }
+    });
+    const [pinnedFriends, setPinnedFriends] = useState(() => {
+        try { return JSON.parse(localStorage.getItem(pinKey) || '[]'); } catch (_) { return []; }
+    });
+    // Local overrides for unseen counts (for Mark as unread)
+    const [unseenOverrides, setUnseenOverrides] = useState({}); // roomId -> {count, time}
+    // Manual unread flags
+    const manualFriendUnreadKey = `manual_unread_friends_${user?.id}`;
+    const [manualFriendUnread, setManualFriendUnread] = useState(() => { try { return JSON.parse(localStorage.getItem(manualFriendUnreadKey) || '[]'); } catch (_) { return []; } });
+    useEffect(() => { try { localStorage.setItem(manualFriendUnreadKey, JSON.stringify(manualFriendUnread)); } catch (_) { } }, [manualFriendUnread, manualFriendUnreadKey]);
+    // Arrow/menu UI state
+    const [hoverFriendId, setHoverFriendId] = useState(null);
+    const [openFriendMenu, setOpenFriendMenu] = useState(null); // { id, top }
+    const [openGroupMenu, setOpenGroupMenu] = useState(null);   // { id, top }
+    const [openChannelMenu, setOpenChannelMenu] = useState(null); // { id, top }
+    // Doodle indicator: rooms where someone is currently drawing (other than me)
+    const [drawingRooms, setDrawingRooms] = useState(new Set());
+
+    useEffect(() => {
+        localStorage.setItem('pinned_groups', JSON.stringify(pinnedGroups));
+    }, [pinnedGroups]);
+
+    useEffect(() => { try { localStorage.setItem(favKey, JSON.stringify(favourites)); } catch (_) { } }, [favourites, favKey]);
+    useEffect(() => { try { localStorage.setItem(pinKey, JSON.stringify(pinnedFriends)); } catch (_) { } }, [pinnedFriends, pinKey]);
+
+    // Persist freshest avatars from friends list and trigger refresh
+    useEffect(() => {
+        try {
+            if (Array.isArray(friends)) {
+                let changed = false;
+                friends.forEach(f => {
+                    if (!f || !f.id || !f.avatar) return;
+                    const key = 'user_avatar_' + String(f.id);
+                    try {
+                        const prev = localStorage.getItem(key);
+                        if (prev !== f.avatar) {
+                            localStorage.setItem(key, f.avatar);
+                            localStorage.setItem('user_avatar_ver_' + String(f.id), String(Date.now()));
+                            changed = true;
+                        }
+                    } catch (_) { }
+                });
+                if (changed) setRefreshTick(t => t + 1);
+            }
+        } catch (_) { /* ignore */ }
+    }, [friends]);
+
+    // Listen for server-sent avatar updates and refresh immediately
+    // Group helpers
+    const favGroupsKey = `fav_groups_${user?.id}`;
+    const [favGroups, setFavGroups] = useState(() => { try { return JSON.parse(localStorage.getItem(favGroupsKey) || '[]'); } catch (_) { return []; } });
+    useEffect(() => { try { localStorage.setItem(favGroupsKey, JSON.stringify(favGroups)); } catch (_) { } }, [favGroups, favGroupsKey]);
+    const toggleMuteGroup = (groupId) => { try { const k = `mute_group_${groupId}`; const n = !(localStorage.getItem(k) === 'true'); localStorage.setItem(k, String(n)); setRefreshTick(t => t + 1); } catch (_) { } };
+    const markUnreadGroup = (groupId) => {
+        // Mark as manually unread; also clear unseen store
+        setUnseenOverrides(prev => { const n = { ...prev }; delete n[groupId]; return n; });
+        try {
+            const key = `unseen_${user?.id}`;
+            const raw = localStorage.getItem(key);
+            const obj = raw ? JSON.parse(raw) : {};
+            if (obj && typeof obj === 'object') { delete obj[groupId]; localStorage.setItem(key, JSON.stringify(obj)); }
+        } catch (_) { }
+        setManualGroupUnread(prev => {
+            const id = String(groupId);
+            return prev.includes(id) ? prev : [...prev, id];
+        });
+    };
+    const markReadGroup = (groupId) => {
+        setManualGroupUnread(prev => prev.filter(x => x !== String(groupId)));
+        setUnseenOverrides(prev => {
+            const n = { ...prev };
+            n[groupId] = { count: 0, time: unseenMessages[groupId]?.time };
+            return n;
+        });
+        try {
+            const key = `unseen_${user?.id}`;
+            const raw = localStorage.getItem(key);
+            const obj = raw ? JSON.parse(raw) : {};
+            if (obj && typeof obj === 'object') { delete obj[groupId]; localStorage.setItem(key, JSON.stringify(obj)); }
+        } catch (_) { }
+        if (socket && socket.emit) {
+            socket.emit('mark_room_read', { room: groupId, readerId: user?.id, readerUsername: user?.username });
+        }
+        try {
+            window.dispatchEvent(new CustomEvent('room_marked_read', { detail: { room: groupId } }));
+        } catch (_) { }
+    };
+    const markReadFor = (friendId) => {
+        const rid = getRoomId(friendId);
+        // Locally override to 0 so UI immediately shows as read
+        setUnseenOverrides(prev => {
+            const n = { ...prev };
+            n[rid] = { count: 0, time: (unseenMessages?.[rid]?.time) };
+            return n;
+        });
+        try {
+            const key = `unseen_${user?.id}`;
+            const raw = localStorage.getItem(key);
+            const obj = raw ? JSON.parse(raw) : {};
+            if (obj && typeof obj === 'object') { delete obj[rid]; localStorage.setItem(key, JSON.stringify(obj)); }
+        } catch (_) { }
+        // Notify server to mark latest message as read so sender sees green ticks
+        try {
+            if (socket && socket.emit) {
+                socket.emit('mark_room_read', { room: rid, readerId: user?.id, readerUsername: user?.username });
+            }
+        } catch (_) { }
+        // Notify app to reset unseen state for this room
+        try {
+            window.dispatchEvent(new CustomEvent('room_marked_read', { detail: { room: rid } }));
+        } catch (_) { }
+        setManualFriendUnread(prev => prev.filter(x => x !== String(friendId)));
+    };
+    const manualGroupUnreadKey = `manual_unread_groups_${user?.id}`;
+    const [manualGroupUnread, setManualGroupUnread] = useState(() => { try { return JSON.parse(localStorage.getItem(manualGroupUnreadKey) || '[]'); } catch (_) { return []; } });
+    useEffect(() => { try { localStorage.setItem(manualGroupUnreadKey, JSON.stringify(manualGroupUnread)); } catch (_) { } }, [manualGroupUnread, manualGroupUnreadKey]);
+    const toggleFavGroup = (groupId) => {
+        setFavGroups(prev => { const id = String(groupId); return prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]; });
+    };
+    const exitGroup = (groupId) => {
+        try { socket && socket.emit && socket.emit('leave_group', { groupId, userId: user.id }); } catch (_) { }
+        archiveItem('group', groupId);
+        setOpenGroupMenu(null);
+    };
+
+    // Channel helpers
+    const pinnedChannelsKey = `pinned_channels_${user?.id}`;
+    const [pinnedChannels, setPinnedChannels] = useState(() => { try { return JSON.parse(localStorage.getItem(pinnedChannelsKey) || '[]'); } catch (_) { return []; } });
+    useEffect(() => { try { localStorage.setItem(pinnedChannelsKey, JSON.stringify(pinnedChannels)); } catch (_) { } }, [pinnedChannels, pinnedChannelsKey]);
+    const togglePinChannel = (channelId) => { setPinnedChannels(prev => prev.includes(channelId) ? prev.filter(id => id !== channelId) : [...prev, channelId]); };
+    const toggleMuteChannel = (channelId) => { try { const k = `mute_channel_${channelId}`; const n = !(localStorage.getItem(k) === 'true'); localStorage.setItem(k, String(n)); setRefreshTick(t => t + 1); } catch (_) { } };
+    const markReadChannelOverrideKey = `channel_read_overrides_${user?.id}`;
+    const [channelReadOverrides, setChannelReadOverrides] = useState(() => { try { return JSON.parse(localStorage.getItem(markReadChannelOverrideKey) || '{}'); } catch (_) { return {}; } });
+    const channelManualUnreadKey = `channel_manual_unread_${user?.id}`;
+    const [channelManualUnread, setChannelManualUnread] = useState(() => { try { return JSON.parse(localStorage.getItem(channelManualUnreadKey) || '{}'); } catch (_) { return {}; } });
+    useEffect(() => { try { localStorage.setItem(markReadChannelOverrideKey, JSON.stringify(channelReadOverrides)); } catch (_) { } }, [channelReadOverrides, markReadChannelOverrideKey]);
+    useEffect(() => { try { localStorage.setItem(channelManualUnreadKey, JSON.stringify(channelManualUnread)); } catch (_) { } }, [channelManualUnread, channelManualUnreadKey]);
+    const markChannelAsRead = (channelId) => { setChannelReadOverrides(prev => ({ ...prev, [channelId]: true })); setChannelManualUnread(prev => { const n = { ...prev }; delete n[channelId]; return n; }); };
+    const markChannelAsUnread = (channelId) => { setChannelReadOverrides(prev => ({ ...prev, [channelId]: false })); setChannelManualUnread(prev => ({ ...prev, [channelId]: true })); };
+    const copyChannelLink = (channelId) => { try { const url = `${window.location.origin}/#channel/${channelId}`; navigator.clipboard.writeText(url); } catch (_) { } };
+    const toggleFollowChannel = async (channelId) => {
+        try {
+            const isFollowing = channels.find(c => String(c.id) === String(channelId))?.followers?.includes(String(user?.id));
+            const endpoint = isFollowing ? 'unfollow' : 'follow';
+
+            await fetch(`http://localhost:3001/channels/${channelId}/${endpoint}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: user?.id, userName: user?.username, avatar: user?.avatar })
+            });
+
+            // Optimistic update handled by socket 'channel_updated' or 'channel_followed'
+            // But we can force a refresh tick just in case
+            setRefreshTick(t => t + 1);
+        } catch (_) { }
+        setOpenChannelMenu(null);
+    };
+
+    // Listen for server-sent avatar updates and refresh immediately
+    useEffect(() => {
+        if (!socket) return;
+        const onAvatarUpdated = (payload = {}) => {
+            try {
+                const uid = String(payload.userId);
+                const url = payload.avatarUrl;
+                if (!uid || !url) return;
+                try {
+                    localStorage.setItem('user_avatar_' + uid, url);
+                    localStorage.setItem('user_avatar_ver_' + uid, String(Date.now()));
+                } catch (_) { }
+                setRefreshTick(t => t + 1);
+            } catch (_) { /* ignore */ }
+        };
+
+
+        socket.on('avatar_updated', onAvatarUpdated);
+        return () => { try { socket.off('avatar_updated', onAvatarUpdated); } catch (_) { } };
+    }, [socket]);
+
+    // Also learn latest avatars from incoming statusList entries
+    useEffect(() => {
+        try {
+            if (Array.isArray(statusList)) {
+                let changed = false;
+                statusList.forEach(s => {
+                    const uid = s && (String(s.userId));
+                    const url = s && s.avatar;
+                    if (!uid || !url) return;
+                    const key = 'user_avatar_' + uid;
+                    try {
+                        const prev = localStorage.getItem(key);
+                        if (prev !== url) {
+                            localStorage.setItem(key, url);
+                            localStorage.setItem('user_avatar_ver_' + uid, String(Date.now()));
+                            changed = true;
+                        }
+                    } catch (_) { }
+                });
+                if (changed) setRefreshTick(t => t + 1);
+            }
+        } catch (_) { /* ignore */ }
+    }, [statusList]);
+
+    useEffect(() => {
+        const onStorage = (e) => {
+            if (!e || !e.key) return;
+            // Refresh when any icon/avatar relevant key changes
+            if (
+                e.key.startsWith('community_icon_') ||
+                e.key.startsWith('group_avatar_') ||
+                e.key.startsWith('user_avatar_') ||
+                e.key.includes('avatar')
+            ) {
+                setRefreshTick(t => t + 1);
+            }
+        };
+        const onForce = () => setRefreshTick(t => t + 1);
+        window.addEventListener('storage', onStorage);
+        window.addEventListener('force_sidebar_refresh', onForce);
+        return () => {
+            window.removeEventListener('storage', onStorage);
+            window.removeEventListener('force_sidebar_refresh', onForce);
+        };
+    }, []);
+
+    // Listen for real-time doodle events to show blinking indicator in list
+    useEffect(() => {
+        if (!socket) return;
+        const onBegin = (payload = {}) => {
+            try {
+                if (!payload.room) return;
+                if (String(payload.userId) === String(user?.id)) return; // ignore self
+                setDrawingRooms(prev => {
+                    const next = new Set(prev);
+                    next.add(String(payload.room));
+                    return next;
+                });
+            } catch (_) { }
+        };
+        const onEnd = (payload = {}) => {
+            try {
+                if (!payload.room) return;
+                setDrawingRooms(prev => {
+                    const next = new Set(prev);
+                    next.delete(String(payload.room));
+                    return next;
+                });
+            } catch (_) { }
+        };
+        socket.on('doodle_begin', onBegin);
+        socket.on('doodle_end', onEnd);
+        return () => {
+            socket.off('doodle_begin', onBegin);
+            socket.off('doodle_end', onEnd);
+        };
+    }, [socket, user?.id]);
+
+    const handleCommunityIconFile = async (communityId, file) => {
+        if (!file) return;
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+            const res = await fetch('http://localhost:3001/upload', { method: 'POST', body: formData });
+            const data = await res.json();
+            if (data.filePath) {
+                const url = `http://localhost:3001${data.filePath}`;
+                localStorage.setItem('community_icon_' + communityId, url);
+                // bump version to force cache-busting on next render
+                try { localStorage.setItem('community_icon_ver_' + communityId, String(Date.now())); } catch (_) { }
+                // Persist to server
+                await fetch(`http://localhost:3001/communities/${communityId}/settings`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId: user.id, icon: url })
+                });
+                setRefreshTick(t => t + 1);
+            }
+        } catch (err) {
+
+        }
+    };
+
+    const openCommunityIconPicker = (communityId) => {
+        try {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*,video/*';
+            input.onchange = (e) => {
+                const file = e.target && e.target.files && e.target.files[0];
+                if (file) handleCommunityIconFile(communityId, file);
+            };
+            input.click();
+        } catch (_) { }
+    };
+
+    // Load archived items per user (server first, fallback to cache)
+    useEffect(() => {
+        let aborted = false;
+        const load = async () => {
+            const key = `archived_items_${user?.id}`;
+            if (!user?.id) return;
+            try {
+                const res = await fetch(`http://localhost:3001/archive/${user.id}`);
+                if (!aborted) {
+                    const list = await res.json();
+                    let next = Array.isArray(list) ? list : [];
+                    // Prefer local cache if server is empty but cache has data
+                    try {
+                        const cached = JSON.parse(localStorage.getItem(key) || '[]');
+                        if (next.length === 0 && Array.isArray(cached) && cached.length > 0) {
+                            next = cached;
+                            // Push cache to server to restore
+                            try {
+                                await fetch(`http://localhost:3001/archive/${user.id}`, {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ items: next })
+                                });
+                            } catch (_) { /* ignore */ }
+                        }
+                    } catch (_) { /* ignore cache parse */ }
+                    setArchivedItems(next);
+                    try { localStorage.setItem(key, JSON.stringify(next)); } catch (_) { }
+                }
+            } catch (_) {
+                try {
+                    const stored = JSON.parse(localStorage.getItem(key) || '[]');
+                    if (!aborted) setArchivedItems(Array.isArray(stored) ? stored : []);
+                } catch (_) {
+                    if (!aborted) setArchivedItems([]);
+                }
+            } finally {
+                if (!aborted) setArchiveLoaded(true);
+            }
+        };
+        setArchiveLoaded(false);
+        load();
+        return () => { aborted = true; };
+    }, [user?.id]);
+
+    // Persist archived items to cache and server (bulk upsert)
+    useEffect(() => {
+        const key = `archived_items_${user?.id}`;
+        try { localStorage.setItem(key, JSON.stringify(archivedItems)); } catch (_) { }
+        const sync = async () => {
+            if (!user?.id || !archiveLoaded) return;
+            try {
+                await fetch(`http://localhost:3001/archive/${user.id}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ items: archivedItems })
+                });
+            } catch (_) { /* ignore network errors; cache remains */ }
+        };
+        sync();
+    }, [archivedItems, user?.id, archiveLoaded]);
+
+    const isArchived = (type, id) => archivedItems.some(ai => ai.type === type && String(ai.id) === String(id));
+    const archiveItem = async (type, id) => {
+        if (isArchived(type, id)) return;
+        const item = { type, id: String(id) };
+        setArchivedItems(prev => [...prev, item]);
+        try {
+            await fetch('http://localhost:3001/archive/add', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: user.id, item })
+            });
+        } catch (_) { /* best-effort; state + cache will sync later */ }
+    };
+    const unarchiveItem = async (type, id) => {
+        setArchivedItems(prev => prev.filter(ai => !(ai.type === type && String(ai.id) === String(id))));
+        try {
+            await fetch('http://localhost:3001/archive/remove', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: user.id, type, id: String(id) })
+            });
+        } catch (_) { /* best-effort */ }
+    };
+
+    const createCommunity = (data) => {
+        socket.emit('create_community', {
+            ...data,
+            createdBy: user.id
+        });
+        // Fetch updated list right away to reflect in UI
+        try { socket.emit('get_communities', user.id); } catch (_) { }
+    };
+
+    const toggleCommunityExpansion = (communityId) => {
+        if (expandedCommunities.includes(communityId)) {
+            setExpandedCommunities(prev => prev.filter(id => id !== communityId));
+        } else {
+            setExpandedCommunities(prev => [...prev, communityId]);
+        }
+    };
+
+    const handleAddGroupToCommunity = (groupId) => {
+        if (!selectedCommunityId) return;
+        const payload = { communityId: selectedCommunityId, groupId, userId: user.id };
+        try {
+            socket.emit('add_group_to_community', payload, () => {
+                // If server supports ack, refresh communities
+                if (user) socket.emit('get_communities', user.id);
+            });
+        } catch (_) {
+            // no-op
+        }
+        // Close modal immediately
+        setShowAddGroupModal(false);
+        // Ensure expanded to show new group
+        if (!expandedCommunities.includes(selectedCommunityId)) {
+            setExpandedCommunities(prev => [...prev, selectedCommunityId]);
+        }
+        // Fallback refresh in case no ack is provided
+        setTimeout(() => { if (user) socket.emit('get_communities', user.id); }, 300);
+    };
+
+    const createGroup = () => {
+        if (!groupName.trim() || selectedMembers.length === 0) return;
+        socket.emit('create_group', {
+            name: groupName,
+            members: selectedMembers,
+            about: groupAbout,
+            createdBy: user.id
+        });
+        setShowCreateGroup(false);
+        setGroupName("");
+        setSelectedMembers([]);
+        setGroupAbout("");
+    };
+
+    const togglePinGroup = (groupId, e) => {
+        e.stopPropagation();
+        if (pinnedGroups.includes(groupId)) {
+            setPinnedGroups(prev => prev.filter(id => id !== groupId));
+        } else {
+            setPinnedGroups(prev => [...prev, groupId]);
+        }
+    };
+
+    const createChannel = async (data) => {
+        try {
+            const res = await fetch('http://localhost:3001/channels', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ...data, createdBy: user.id })
+            });
+            const result = await res.json();
+            if (result.success) {
+                setShowCreateChannel(false);
+            }
+        } catch (err) {
+
+        }
+    };
+
+    const handleDeleteChannel = async (channel) => {
+        if (window.confirm(`Are you sure you want to delete "${channel.name}"? This action cannot be undone.`)) {
+            try {
+                await fetch(`http://localhost:3001/channels/${channel.id}`, {
+                    method: 'DELETE'
+                });
+            } catch (err) {
+
+            }
+        }
+    };
+
+    const handleChannelContextMenu = (e, channel) => {
+        setContextMenu({
+            x: e.clientX,
+            y: e.clientY,
+            type: 'channel',
+            item: channel
+        });
+    };
+
+    const handleContextMenuAction = (action) => {
+        if (contextMenu.type === 'channel') {
+            if (action === 'delete') {
+                handleDeleteChannel(contextMenu.item);
+            }
+        } else if (contextMenu.type === 'community') {
+            if (action === 'delete') {
+                handleDeleteCommunity(contextMenu.item.id);
+            }
+        } else if (contextMenu.type === 'group') {
+            if (action === 'delete') {
+                handleDeleteGroup(contextMenu.item.id);
+            }
+        }
+        setContextMenu(null);
+    };
+
+
+
+    const fetchRequests = async () => {
+        try {
+            const res = await fetch(`http://localhost:3001/friends/requests/${user.id}`);
+            const data = await res.json();
+            setRequests(data);
+        } catch (err) { }
+    };
+
+    useEffect(() => {
+        fetchRequests();
+        const interval = setInterval(() => {
+            fetchRequests();
+        }, 5000); // Poll every 5s for updates
+        return () => clearInterval(interval);
+    }, [user.id]);
+
+    const sendFriendRequest = async () => {
+        try {
+            const res = await fetch('http://localhost:3001/friends/request', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ fromId: user.id, toUsername: addFriendUsername })
+            });
+            const data = await res.json();
+            alert(data.message);
+            setShowAddFriend(false);
+            setAddFriendUsername("");
+            setUserSuggestions([]);
+            setSuggestionsOpen(false);
+        } catch (err) { alert("Failed to send request"); }
+    };
+
+    const handleSelectSuggestion = (u) => {
+        setAddFriendUsername(u.username);
+        setSuggestionsOpen(false);
+    };
+
+    useEffect(() => {
+        let aborted = false;
+        const q = addFriendUsername.trim();
+        if (!showAddFriend || q.length === 0) {
+            setUserSuggestions([]);
+            setSuggestionsOpen(false);
+            setSuggHighlight(-1);
+            return;
+        }
+        setSuggLoading(true);
+        const t = setTimeout(async () => {
+            try {
+                const url = `http://localhost:3001/friends/search?query=${encodeURIComponent(q)}&excludeId=${encodeURIComponent(user.id)}&excludeFriendsOf=${encodeURIComponent(user.id)}`;
+                const res = await fetch(url);
+                const list = await res.json();
+                if (!aborted) {
+                    setUserSuggestions(Array.isArray(list) ? list.slice(0, 8) : []);
+                    setSuggestionsOpen(true);
+                    setSuggHighlight(-1);
+                }
+            } catch (_) {
+                if (!aborted) {
+                    setUserSuggestions([]);
+                    setSuggestionsOpen(false);
+                }
+            } finally {
+                if (!aborted) setSuggLoading(false);
+            }
+        }, 200);
+        return () => { aborted = true; clearTimeout(t); };
+    }, [addFriendUsername, showAddFriend, user.id]);
+
+    const acceptRequest = async (requestId) => {
+        try {
+            await fetch('http://localhost:3001/friends/accept', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ requestId })
+            });
+            fetchRequests();
+            fetchFriends();
+        } catch (err) { }
+    };
+
+    const handleStatusUpload = async () => {
+        if (!statusFile) return;
+        const formData = new FormData();
+        formData.append('file', statusFile);
+        try {
+            const response = await fetch('http://localhost:3001/upload', { method: 'POST', body: formData });
+            const data = await response.json();
+            const statusData = {
+                username: user.username,
+                url: `http://localhost:3001${data.filePath}`,
+                type: data.type,
+                timestamp: new Date().toLocaleTimeString(),
+            };
+            socket.emit('send_status', statusData);
+            setShowStatusInput(false);
+            setStatusFile(null);
+        } catch (error) { }
+    };
+
+    const [viewingStory, setViewingStory] = useState(null);
+    const [seenStories, setSeenStories] = useState(new Set());
+    // Track last seen item per story user (keyed by latest URL)
+    const [seenStoryKeys, setSeenStoryKeys] = useState({}); // { [storyUserId]: latestUrl }
+
+    useEffect(() => {
+        const key = `seen_stories_${user?.id}`;
+        try {
+            const stored = JSON.parse(localStorage.getItem(key) || '[]');
+            setSeenStories(new Set(stored));
+        } catch (_) {
+            setSeenStories(new Set());
+        }
+    }, [user?.id]);
+
+    useEffect(() => {
+        const key = `seen_story_keys_${user?.id}`;
+        try {
+            const stored = JSON.parse(localStorage.getItem(key) || '{}');
+            setSeenStoryKeys(typeof stored === 'object' && stored ? stored : {});
+        } catch (_) {
+            setSeenStoryKeys({});
+        }
+    }, [user?.id]);
+
+    useEffect(() => {
+        let timer;
+        if (viewingStory) {
+            setSeenStories(prev => {
+                const next = new Set([...prev, viewingStory.userId]);
+                const key = `seen_stories_${user?.id}`;
+                try { localStorage.setItem(key, JSON.stringify(Array.from(next))); } catch (_) { }
+                return next;
+            });
+            // Mark the latest item as seen for this user
+            try {
+                const latest = (viewingStory.items && viewingStory.items.length > 0)
+                    ? viewingStory.items[viewingStory.items.length - 1]
+                    : { url: viewingStory.url };
+                const latestKey = latest?.url;
+                if (latestKey) {
+                    setSeenStoryKeys(prev => {
+                        const uid = String(viewingStory.userId);
+                        const next = { ...(prev || {}), [uid]: latestKey };
+                        try { localStorage.setItem(`seen_story_keys_${user?.id}`, JSON.stringify(next)); } catch (_) { }
+                        return next;
+                    });
+                }
+            } catch (_) { }
+            socket.emit('mark_story_seen', { storyUserId: viewingStory.userId, viewerId: user.id });
+
+            timer = setTimeout(() => {
+                setViewingStory(null);
+            }, 10000);
+        }
+        return () => clearTimeout(timer);
+    }, [viewingStory, socket, user.id, user?.id]);
+
+    useEffect(() => {
+        const handleClickOutside = () => {
+            setOpenMenuId(null);
+            setContextMenu(null);
+            setDeleteConfirm(null);
+            setShowFilterMenu(false);
+            setOpenFriendMenu(null);
+            setOpenGroupMenu(null);
+            setOpenChannelMenu(null);
+        };
+        document.addEventListener('click', handleClickOutside);
+        return () => document.removeEventListener('click', handleClickOutside);
+    }, []);
+
+    const getRoomId = (friendId) => [user.id, friendId].sort().join('-');
+    const toggleMuteFor = (friendId) => {
+        try {
+            const key = muteKey(friendId);
+            const next = !(localStorage.getItem(key) === 'true');
+            localStorage.setItem(key, String(next));
+            setRefreshTick(t => t + 1);
+        } catch (_) { }
+    };
+    const togglePinFor = (friendId) => {
+        setPinnedFriends(prev => {
+            const id = String(friendId);
+            return prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id];
+        });
+    };
+    const toggleFavouriteFor = (friendId) => {
+        setFavourites(prev => {
+            const id = String(friendId);
+            return prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id];
+        });
+    };
+    const markUnreadFor = (friendId) => {
+        // Manual unread should show an empty bubble irrespective of unseenMessages count
+        const rid = getRoomId(friendId);
+        // Force a local override with count 0 tied to the current unseen time, so it masks any prop count
+        setUnseenOverrides(prev => {
+            const n = { ...prev };
+            n[rid] = { count: 0, time: (unseenMessages?.[rid]?.time), timestamp: (unseenMessages?.[rid]?.timestamp) };
+            return n;
+        });
+        try {
+            const key = `unseen_${user?.id}`;
+            const raw = localStorage.getItem(key);
+            const obj = raw ? JSON.parse(raw) : {};
+            if (obj && typeof obj === 'object') { delete obj[rid]; localStorage.setItem(key, JSON.stringify(obj)); }
+        } catch (_) { }
+        setManualFriendUnread(prev => {
+            const id = String(friendId);
+            return prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id];
+        });
+    };
+    const toggleBlockFor = (friendId) => {
+        try {
+            const key = blockKey(friendId);
+            const next = !(localStorage.getItem(key) === 'true');
+            localStorage.setItem(key, String(next));
+            setRefreshTick(t => t + 1);
+            if (socket && user?.id) {
+                socket.emit('block_user', { userId: user.id, blockedId: friendId, block: next });
+            }
+        } catch (_) { }
+    };
+    const deleteChatFor = async (friendId) => {
+        try {
+            const rid = getRoomId(friendId);
+            // Emit delete_chat to server to clean up the chat room
+            try { socket && socket.emit && socket.emit('delete_chat', { room: rid }); } catch (_) { }
+
+            // Remove friend from server
+            try {
+                await fetch('http://localhost:3001/friends/remove', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId: user.id, friendId })
+                });
+            } catch (_) { }
+
+            // Clear unseen messages
+            setUnseenOverrides(prev => { const n = { ...prev }; delete n[rid]; return n; });
+
+            // Clear from localStorage
+            try {
+                const key = `unseen_${user?.id}`;
+                const raw = localStorage.getItem(key);
+                const obj = raw ? JSON.parse(raw) : {};
+                if (obj && typeof obj === 'object') { delete obj[rid]; localStorage.setItem(key, JSON.stringify(obj)); }
+            } catch (_) { }
+
+            // Refresh friends list
+            fetchFriends();
+        } catch (_) { }
+        setOpenFriendMenu(null);
+    };
+
+    return (
+        <div className="sidebar" style={{ display: 'flex', flexDirection: 'column', height: '100%', overflowX: 'visible', padding: '10px', borderRight: '1px solid var(--border-color)', position: 'relative' }}>
+            <style>{`
+                /* Use the same subtle bobbing/opacity animation as slow/typing dots */
+                .blink-yellow { animation: typingBlink 1.2s infinite ease-in-out; transform-origin: center; }
+                @keyframes typingBlink {
+                    0% { opacity: 0.2; transform: scale(0.8); }
+                    50% { opacity: 1; transform: scale(1.1); }
+                    100% { opacity: 0.2; transform: scale(0.8); }
+                }
+                /* Smooth ripple pulse around the alert dot */
+                .alert-dot { position: relative; display: inline-block; }
+                .alert-dot::after {
+                    content: '';
+                    position: absolute;
+                    inset: -4px; /* expands 4px around the 8px core to start */
+                    border-radius: 50%;
+                    background: currentColor;
+                    opacity: 0.35;
+                    transform: scale(0.6);
+                    animation: ripple 1.6s ease-out infinite;
+                }
+                @keyframes ripple {
+                    0% { transform: scale(0.6); opacity: 0.35; }
+                    70% { transform: scale(1.8); opacity: 0; }
+                    100% { transform: scale(2); opacity: 0; }
+                }
+                /* Make all chat boxes slightly narrower and centered */
+                .sidebar .chat-item {
+                    width: 90% !important;
+                    margin-left: auto !important;
+                    margin-right: auto !important;
+                    overflow: visible !important;
+                }
+                /* Align section headers with boxes */
+                .sidebar .section-title {
+                    width: 90% !important;
+                    margin-left: auto !important;
+                    margin-right: auto !important;
+                }
+                /* Align header row and search bar with boxes */
+                .sidebar .sidebar-header,
+                .sidebar .search-bar {
+                    width: 90% !important;
+                    margin-left: auto !important;
+                    margin-right: auto !important;
+                }
+                /* Filter button fill animation */
+                .filter-btn { position: relative; overflow: hidden; }
+                .filter-btn::after {
+                    content: '';
+                    position: absolute; left: 0; right: 0; top: 0; height: 0%;
+                    background: currentColor; opacity: 0.18; border-radius: 10px;
+                    pointer-events: none;
+                }
+                .filter-btn.active::after { animation: filterFillDown 260ms ease-out forwards; }
+                @keyframes filterFillDown {
+                    from { height: 0%; }
+                    to   { height: 100%; }
+                }
+                /* Filter menu appearance from icon (top-right) with scale and clip) */
+                .filter-menu { transform-origin: top right; animation: menuReveal 160ms ease-out forwards, menuClip 220ms ease-out forwards; will-change: transform, opacity, clip-path; }
+                @keyframes menuReveal {
+                    0% { opacity: 0; transform: translateY(6px) scale(0.92); }
+                    100% { opacity: 1; transform: translateY(0) scale(1); }
+                }
+                @keyframes menuClip {
+                    0% { clip-path: circle(0% at 100% 0%); }
+                    100% { clip-path: circle(150% at 100% 0%); }
+                }
+                .filter-row { opacity: 0; animation: fadeUp 220ms ease-out forwards; will-change: transform, opacity; }
+                .filter-menu .filter-row:nth-child(1) { animation-delay: 40ms; }
+                .filter-menu .filter-row:nth-child(2) { animation-delay: 90ms; }
+                .filter-menu .filter-row:nth-child(3) { animation-delay: 140ms; }
+                @keyframes fadeUp {
+                    0% { opacity: 0; transform: translateY(6px); }
+                    100% { opacity: 1; transform: translateY(0); }
+                }
+                /* In Communities section, make the chat-item fill the expander width */
+                .sidebar .communities-section .chat-item {
+                    width: 100% !important;
+                    margin-left: 0 !important;
+                    margin-right: 0 !important;
+                }
+                /* Hover arrow reveal inside chat boxes */
+                .friend-row { position: relative; overflow: visible; }
+                .friend-right { transition: transform 180ms ease, opacity 180ms ease, padding-right 180ms ease; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; align-self: stretch; justify-content: center; }
+                /* Reserve minimal space when hovering (slightly increased) */
+                .chat-item:hover .friend-right { padding-right: 20px; }
+                /* Arrow: global style so it also works for channels/groups */
+                .friend-arrow { position: absolute; right: 4px; top: 50%; transform: translate(10px, -50%); opacity: 0; filter: blur(80px); transition: transform 220ms ease, opacity 220ms ease, filter 220ms ease; background: transparent; border: none; border-radius: 10px; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; z-index: 80; box-shadow: none; overflow: visible; }
+                .chat-item:hover .friend-arrow { opacity: 1; transform: translate(0, -50%); filter: blur(0); }
+                .friend-arrow svg { width: 20px; height: 20px; stroke: #ffffff; fill: none; }
+                .friend-row:hover .friend-right { transform: translateX(0); }
+                /* Channel item: transparent theme-matching bg with bump animation */
+                .channel-item { background: var(--bg-secondary) !important; }
+                .channel-item:hover { background: var(--bg-input) !important; transform: translateY(-1px) scale(1.01); }
+                .channel-item.active { background: var(--accent-primary) !important; color: #ffffff !important; transform: translateY(-1px) scale(1.01); }
+                /* Small top chips */
+                .chips { display:flex; gap:8px; align-items:center; }
+                .chip { padding:6px 12px; border-radius:9999px; border:1px solid var(--border-color); color:var(--text-secondary); cursor:pointer; background: var(--bg-input); font-size:0.85rem; }
+                .chip:hover { background: var(--bg-secondary); }
+                .chip.active { background: var(--accent-primary); color:#ffffff; border-color: var(--accent-primary); }
+                .chips-scroll { display:flex; gap:8px; align-items:center; overflow-x:auto; scrollbar-width:none; }
+                .chips-scroll::-webkit-scrollbar { display:none; }
+                /* Hide scrollbar for community name while keeping it scrollable */
+                .name-scroll { overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
+                .name-scroll::-webkit-scrollbar { display: none; }
+                /* Friend action menu */
+                /* Friend action menu - simplified to avoid blur/positioning issues */
+                /* Friend action menu - simplified to avoid blur/positioning issues */
+                .friend-menu { position: fixed; background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 12px; padding: 6px; min-width: 200px; box-shadow: 0 8px 24px rgba(0,0,0,0.25); z-index: 4000; transform-origin: top right; animation: menuReveal 300ms ease-out forwards, menuClip 420ms ease-out forwards; will-change: transform, opacity, clip-path; max-height: 70vh; overflow-y: auto; }
+                .friend-menu .item { display:flex; align-items:center; gap:10px; padding:8px 12px; border-radius:8px; color:var(--text-primary); cursor:pointer; font-size: 0.9rem; opacity: 0; animation: fadeUp 280ms ease-out forwards; will-change: transform, opacity; }
+                .friend-menu .item:hover { background: var(--bg-input); }
+                .friend-menu .item:nth-child(1) { animation-delay: 0.1s; }
+                .friend-menu .item:nth-child(2) { animation-delay: 0.15s; }
+                .friend-menu .item:nth-child(3) { animation-delay: 0.2s; }
+                .friend-menu .item:nth-child(4) { animation-delay: 0.25s; }
+                .friend-menu .item:nth-child(5) { animation-delay: 0.3s; }
+                .friend-menu .item:nth-child(6) { animation-delay: 0.35s; }
+                .friend-menu .item:nth-child(7) { animation-delay: 0.4s; }
+                .friend-menu .item:nth-child(8) { animation-delay: 0.45s; }
+                .friend-menu .item:nth-child(9) { animation-delay: 0.5s; }
+                .friend-menu .item:nth-child(10) { animation-delay: 0.55s; }
+                @keyframes menuReveal {
+                    0% { opacity: 0; transform: scale(0.92) translateY(-8px); }
+                    100% { opacity: 1; transform: scale(1) translateY(0); }
+                }
+                @keyframes itemFadeIn {
+                    0% { opacity: 0; transform: translateY(-8px); }
+                    100% { opacity: 1; transform: translateY(0); }
+                }
+            `}</style>
+            <div className="sidebar-header" style={{ paddingTop: '15px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <h2 style={{ fontSize: '1.5rem', margin: 0, fontWeight: 700 }}>Chats</h2>
+                </div>
+
+                {/* Header actions (kept minimal) */}
+                <div style={{ display: 'flex', gap: '8px', padding: '6px', borderRadius: '9999px', background: 'var(--pill-bg)', border: '1px solid var(--border-color)', backdropFilter: 'blur(8px)' }}>
+                    <div className="tap-scale" onClick={() => setShowCreateCommunity(true)} style={{ cursor: 'pointer', width: '32px', height: '32px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }} title="Create Community">
+                        <FiGlobe size={18} />
+                    </div>
+                    {/* actions */}
+                    <div className="tap-scale" onClick={() => setShowCreateGroup(true)} style={{ cursor: 'pointer', width: '32px', height: '32px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }} title="Create Group">
+                        <FiUsers size={18} />
+                    </div>
+                    <div className="tap-scale" onClick={() => setShowAddFriend(!showAddFriend)} style={{ cursor: 'pointer', width: '32px', height: '32px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--accent-light)', color: 'var(--accent-primary)' }} title="Add Friend">
+                        <FiUserPlus size={18} />
+                    </div>
+                    <div className="tap-scale"
+                        onClick={() => setIsEditMode(prev => !prev)}
+                        style={{ cursor: 'pointer', width: '32px', height: '32px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: isEditMode ? '#3a3a3a' : 'var(--bg-secondary)', color: isEditMode ? '#ff6b6b' : 'var(--text-primary)', border: isEditMode ? '1px solid #ff6b6b' : 'none' }}
+                        title={isEditMode ? 'Exit Edit Mode' : 'Edit'}
+                    >
+                        <FiEdit2 size={16} />
+                    </div>
+                </div>
+            </div>
+
+            {showAddFriend && (
+                <div style={{
+                    marginBottom: '16px',
+                    position: 'relative',
+                    background: 'var(--bg-secondary)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '16px',
+                    padding: '12px'
+                }}>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        <input
+                            type="text"
+                            placeholder="Type a username..."
+                            value={addFriendUsername}
+                            onChange={(e) => setAddFriendUsername(e.target.value)}
+                            onFocus={() => { if (userSuggestions.length > 0) setSuggestionsOpen(true); }}
+                            onKeyDown={(e) => {
+                                if (!suggestionsOpen || userSuggestions.length === 0) return;
+                                if (e.key === 'ArrowDown') {
+                                    e.preventDefault();
+                                    setSuggHighlight(h => Math.min(userSuggestions.length - 1, h + 1));
+                                } else if (e.key === 'ArrowUp') {
+                                    e.preventDefault();
+                                    setSuggHighlight(h => Math.max(-1, h - 1));
+                                } else if (e.key === 'Enter') {
+                                    if (suggHighlight >= 0 && userSuggestions[suggHighlight]) {
+                                        e.preventDefault();
+                                        handleSelectSuggestion(userSuggestions[suggHighlight]);
+                                    }
+                                } else if (e.key === 'Escape') {
+                                    setSuggestionsOpen(false);
+                                }
+                            }}
+                            style={{
+                                flex: 1,
+                                padding: '12px 14px',
+                                borderRadius: '12px',
+                                border: '1px solid var(--border-color)',
+                                background: 'var(--bg-panel)',
+                                color: 'var(--text-primary)',
+                                fontSize: '0.95rem',
+                                outline: 'none',
+                                transition: 'all 0.2s ease'
+                            }}
+                        />
+                        <button
+                            onClick={sendFriendRequest}
+                            disabled={!addFriendUsername.trim()}
+                            title="Send friend request"
+                            style={{
+                                width: '44px',
+                                height: '44px',
+                                borderRadius: '50%',
+                                border: 'none',
+                                background: !addFriendUsername.trim() ? 'var(--bg-tertiary)' : 'var(--accent-primary)',
+                                color: !addFriendUsername.trim() ? 'var(--text-tertiary)' : '#ffffff',
+                                cursor: !addFriendUsername.trim() ? 'not-allowed' : 'pointer',
+                                transition: 'all 0.2s ease',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                flexShrink: 0,
+                                boxShadow: !addFriendUsername.trim() ? 'none' : '0 2px 8px rgba(0, 0, 0, 0.15)'
+                            }}
+                        >
+                            <FiUserPlus size={18} />
+                        </button>
+                    </div>
+                    {suggestionsOpen && (userSuggestions.length > 0 || suggLoading) && (
+                        <div style={{ position: 'absolute', left: 0, right: 0, top: 'calc(100% + 6px)', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '10px', overflow: 'hidden', boxShadow: theme === 'dark' ? '0 8px 20px rgba(0,0,0,0.25)' : '0 8px 20px rgba(0,0,0,0.12)', zIndex: 20 }}>
+                            {suggLoading && (
+                                <div style={{ padding: '10px 12px', color: 'var(--text-secondary)' }}>Searching...</div>
+                            )}
+                            {userSuggestions.map((u, idx) => (
+                                <div key={u.id}
+                                    className="tap-scale"
+                                    onMouseDown={(e) => { e.preventDefault(); handleSelectSuggestion(u); }}
+                                    onMouseEnter={() => setSuggHighlight(idx)}
+                                    style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', background: idx === suggHighlight ? 'var(--bg-input)' : 'transparent', cursor: 'pointer' }}>
+                                    <Avatar src={u.avatar} alt={u.username} style={{ width: 28, height: 28, borderRadius: '50%' }} />
+                                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                        <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{u.username}</span>
+                                        {u.about && <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{u.about}</span>}
+                                    </div>
+                                </div>
+                            ))}
+                            {friends
+                                .filter(f => favourites.includes(String(f.id)))
+                                .filter(f => !isArchived('friend', f.id))
+                                .filter(f => { const q = search.trim().toLowerCase(); if (!q) return true; return f.username.toLowerCase().includes(q) || (f.about || '').toLowerCase().includes(q); })
+                                .length === 0 && (
+                                    <div style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '16px', fontSize: '0.9rem' }}>
+                                        No favourites yet.
+                                    </div>
+                                )}
+                        </div>
+                    )}
+                </div>
+            )}
+
+            <div className="search-bar" style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 10px', borderRadius: '12px', background: 'var(--bg-input)', border: '1px solid var(--border-color)' }}>
+                <FiSearch size={18} color="var(--text-secondary)" />
+                <input
+                    type="text"
+                    className="search-input"
+                    placeholder="Search friends, groups, communities"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: 'var(--text-primary)' }}
+                />
+                <button
+                    onClick={(e) => { e.stopPropagation(); setShowFilterMenu(v => !v); }}
+                    title={showFilterMenu ? 'Hide filters' : 'Show filters'}
+                    className={`filter-btn ${showFilterMenu ? 'active' : ''}`}
+                    style={{
+                        cursor: 'pointer', width: 34, height: 34, borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        background: (showOnlineOnly || showUnreadOnly) ? 'var(--accent-light)' : 'transparent', border: '1px solid var(--border-color)', color: (showOnlineOnly || showUnreadOnly) ? 'var(--accent-primary)' : 'var(--text-secondary)'
+                    }}
+                >
+                    {/* Centered three horizontal lines with decreasing length */}
+                    <svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ display: 'block' }}>
+                        <line x1="4" y1="6" x2="16" y2="6" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
+                        <line x1="6" y1="10" x2="14" y2="10" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
+                        <line x1="8" y1="14" x2="12" y2="14" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
+                    </svg>
+                </button>
+                {showFilterMenu && (
+                    <div onClick={(e) => e.stopPropagation()} className="filter-menu" style={{ position: 'absolute', right: 8, top: 'calc(100% + 8px)', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: 12, padding: 8, minWidth: 200, boxShadow: '0 8px 20px rgba(0,0,0,0.25)', zIndex: 50 }}>
+                        <div className="filter-row" style={{ animationDelay: '20ms', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '8px 10px', borderRadius: 8, cursor: 'pointer', color: 'var(--text-primary)' }}
+                            onClick={() => setShowOnlineOnly(v => !v)}>
+                            <span>Online only</span>
+                            <input type="checkbox" checked={!!showOnlineOnly} onChange={(e) => setShowOnlineOnly(e.target.checked)} />
+                        </div>
+                        <div className="filter-row" style={{ animationDelay: '60ms', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '8px 10px', borderRadius: 8, cursor: 'pointer', color: 'var(--text-primary)' }}
+                            onClick={() => setShowUnreadOnly(v => !v)}>
+                            <span>Unread only</span>
+                            <input type="checkbox" checked={!!showUnreadOnly} onChange={(e) => setShowUnreadOnly(e.target.checked)} />
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            {/* Top nav chips between search and stories */}
+            <div className="section-title" style={{ width: '90%', margin: '8px auto' }}>
+                <div className="chips-scroll">
+                    {['All', 'Pinned', 'Unread', 'Favourites', 'Friends', 'Groups', 'Communities', 'Channels'].map(lbl => (
+                        <div key={lbl} className={`chip ${topFilter === lbl ? 'active' : ''}`} onClick={(e) => { e.stopPropagation(); setTopFilter(lbl); setShowUnreadOnly(lbl === 'Unread'); }}>
+                            {lbl}
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            {/* Stories (chip-conditional):
+               - Hide in Favourites and Groups
+               - In Unread: show only unseen stories; hide section if none */}
+            {(() => {
+                if (topFilter === 'Favourites' || topFilter === 'Groups') return false;
+                const allOthers = (statusList || []).filter(s => String(s.userId) !== String(user.id));
+                const unseenOnly = (topFilter === 'Unread');
+                const filtered = allOthers.filter(status => {
+                    if (!unseenOnly) return true;
+                    const latestItem = status.items && status.items.length > 0 ? status.items[status.items.length - 1] : null;
+                    const previewUrl = latestItem ? latestItem.url : status.url;
+                    const latestKey = previewUrl;
+                    const uid = String(status.userId || '');
+                    const isSeen = seenStoryKeys && uid && (seenStoryKeys[uid] === latestKey);
+                    return !isSeen;
+                });
+                if (unseenOnly && filtered.length === 0) return false;
+                return (
+                    <div className="status-section" style={{ marginTop: '16px', marginBottom: '12px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', width: '90%', marginRight: 'auto' }}>
+                            <div className="section-title" style={{ marginBottom: 0 }}>Stories</div>
+                        </div>
+                        <div className="status-list" style={{ display: 'flex', gap: '8px', overflowX: 'auto', padding: '0 0', scrollbarWidth: 'none', width: '90%', justifyContent: 'flex-start', marginLeft: 'auto', marginRight: 'auto' }}>
+                            {/* My Status Card */}
+                            {(() => {
+                                const myStatus = (statusList || []).find(s => String(s.userId) === String(user.id));
+                                const hasStatus = myStatus && myStatus.items && myStatus.items.length > 0;
+                                const latestItem = hasStatus ? myStatus.items[myStatus.items.length - 1] : null;
+                                const previewUrl = latestItem ? latestItem.url : user.avatar;
+                                const isVideo = latestItem ? latestItem.type.startsWith('video') : false;
+
+                                return (
+                                    <div className="status-item tap-scale fade-in-up" onClick={() => {
+                                        if (hasStatus) {
+                                            setViewingStory(myStatus);
+                                        } else {
+                                            fileInputRef.current?.click();
+                                        }
+                                    }} style={{
+                                        position: 'relative', width: '100px', height: '170px', borderRadius: '20px', overflow: 'hidden', cursor: 'pointer',
+                                        background: 'var(--bg-story-card)',
+                                        border: theme === 'dark' ? '1px solid rgba(60, 60, 60, 1)' : '1px solid rgba(0,0,0,0.08)',
+                                        flexShrink: 0,
+                                        boxShadow: theme === 'dark' ? '0 2px 8px rgba(0,0,0,0.4)' : '0 10px 24px rgba(0,0,0,0.16)'
+                                    }}>
+                                        {/* Background Media */}
+                                        {hasStatus ? (
+                                            isVideo ? <video src={previewUrl} style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.8 }} /> : <Avatar src={previewUrl} alt="My Status" style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.8 }} />
+                                        ) : (
+                                            <Avatar src={user.avatar} alt="Me" style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.6, filter: 'blur(2px)' }} />
+                                        )}
+
+                                        {/* Avatar Overlay with Presence (Like other stories) */}
+                                        <div style={{
+                                            position: 'absolute', bottom: '35px', left: '50%', transform: 'translateX(-50%)',
+                                            padding: '2px',
+                                            background: 'rgba(0,0,0,0.2)', backdropFilter: 'blur(4px)',
+                                            zIndex: 4, borderRadius: '50%'
+                                        }}>
+                                            <div style={{ position: 'relative', padding: '2px', borderRadius: '50%', border: theme === 'dark' ? '2px solid rgba(113, 113, 113, 1)' : '2px solid rgba(0,0,0,0.08)' }}>
+                                                {hasStatus ? (
+                                                    <Avatar
+                                                        src={user.avatar}
+                                                        alt="Me"
+                                                        style={{ width: '40px', height: '40px', borderRadius: '50%', display: 'block', objectFit: 'cover' }}
+                                                    />
+                                                ) : (
+                                                    <div style={{
+                                                        width: '40px', height: '40px', borderRadius: '50%', background: 'var(--accent-primary)',
+                                                        display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff'
+                                                    }}>
+                                                        <FiPlus size={24} />
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {/* Footer Name */}
+                                        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '8px', background: 'transparent', zIndex: 3 }}>
+                                            <span style={{ fontSize: '1rem', color: 'white', fontWeight: '500', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'center' }}>
+                                                My Status
+                                            </span>
+                                        </div>
+                                        <div style={{
+                                            position: 'absolute', bottom: 0, left: 0, right: 0, height: '100px',
+                                            background: 'linear-gradient(to top, rgba(0, 0, 0, 0.6) 0%, transparent 100%)',
+                                            pointerEvents: 'none', zIndex: 2, borderBottomLeftRadius: '20px', borderBottomRightRadius: '20px'
+                                        }} />
+
+                                        {/* Hidden Add Button overlay for when hasStatus is true but user wants to add more? 
+                                            Currently click views story. Maybe add a small plus button in corner if hasStatus?
+                                            For now, follow standard logic: click views story if exists.
+                                        */}
+                                        {hasStatus && (
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}
+                                                style={{
+                                                    position: 'absolute', bottom: '10px', right: '10px',
+                                                    width: '24px', height: '24px', borderRadius: '50%',
+                                                    background: 'var(--bg-secondary)', color: 'var(--text-primary)',
+                                                    border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                    zIndex: 10, cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
+                                                }}
+                                                title="Add to story"
+                                            >
+                                                <FiPlus size={14} />
+                                            </button>
+                                        )}
+                                    </div>
+                                );
+                            })()}
+
+                            {filtered.map((status, i) => {
+                                const latestItem = status.items && status.items.length > 0 ? status.items[status.items.length - 1] : null;
+                                const previewUrl = latestItem ? latestItem.url : status.url;
+                                const isVideo = latestItem ? latestItem.type.startsWith('video') : (status.type && status.type.startsWith('video'));
+                                const latestKey = previewUrl;
+                                const uid = String(status.userId || '');
+                                const isSeen = seenStoryKeys && uid && (seenStoryKeys[uid] === latestKey);
+
+                                return (
+                                    <div key={i} className="status-item tap-scale fade-in-up" onClick={() => setViewingStory(status)} style={{
+                                        position: 'relative', width: '100px', height: '170px', borderRadius: '20px', overflow: 'hidden', cursor: 'pointer',
+                                        background: 'var(--bg-story-card)',
+                                        // No dotted border on the box in either theme; dotted only on avatar for unseen
+                                        border: theme === 'dark' ? '1px solid rgba(60, 60, 60, 1)' : '1px solid rgba(0,0,0,0.08)',
+                                        flexShrink: 0,
+                                        boxShadow: theme === 'dark' ? '0 2px 8px rgba(0,0,0,0.4)' : '0 10px 24px rgba(0,0,0,0.16)'
+                                    }}>
+                                        {isVideo ? (
+                                            <video src={previewUrl} style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.8 }} />
+                                        ) : (
+                                            <Avatar src={previewUrl} alt="Status" style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.8 }} />
+                                        )}
+
+                                        {/* Avatar Overlay with Presence */}
+                                        <div style={{
+                                            position: 'absolute', bottom: '35px', left: '50%', transform: 'translateX(-50%)',
+                                            padding: '2px',
+                                            background: 'rgba(0,0,0,0.2)', backdropFilter: 'blur(4px)',
+                                            zIndex: 4, borderRadius: '50%'
+                                        }}>
+                                            <div style={{ position: 'relative', padding: '2px', borderRadius: '50%', border: theme === 'dark' ? (isSeen ? '2px solid rgba(113, 113, 113, 1)' : '2px dotted var(--accent-primary)') : (isSeen ? '2px solid rgba(0,0,0,0.08)' : '2px dotted var(--accent-primary)') }}>
+                                                {(() => {
+                                                    const uid = String(status.userId);
+                                                    const cached = (() => { try { return localStorage.getItem('user_avatar_' + uid); } catch (_) { return null; } })();
+                                                    const ver = (() => { try { return localStorage.getItem('user_avatar_ver_' + uid); } catch (_) { return null; } })();
+                                                    const friend = friends && friends.find?.(f => String(f.id) === uid);
+                                                    const freshest = (friend && friend.avatar) || cached || status.avatar || "https://i.pravatar.cc/150?img=3";
+                                                    const hasQuery = freshest.includes('?');
+                                                    const version = ver || String(refreshTick);
+                                                    const bust = `${freshest}${hasQuery ? '&' : '?'}v=${version}`;
+                                                    return (
+                                                        <Avatar
+                                                            key={`${uid}-${version}`}
+                                                            src={bust}
+                                                            alt={status.username}
+                                                            style={{ width: '40px', height: '40px', borderRadius: '50%', display: 'block', objectFit: 'cover' }}
+                                                            onError={(e) => {
+                                                                try {
+                                                                    const base = freshest.split('?')[0];
+                                                                    const now = String(Date.now());
+                                                                    try { localStorage.setItem('user_avatar_ver_' + uid, now); } catch (_) { }
+                                                                    e.currentTarget.src = `${base}?v=${now}`;
+                                                                } catch (_) { }
+                                                            }}
+                                                        />
+                                                    );
+                                                })()}
+                                                <div style={{ position: 'absolute', bottom: '-2px', right: '-2px', width: '12px', height: '12px', borderRadius: '50%', background: onlineUsers.includes(status.userId) ? 'var(--status-online)' : '#ff6b6b', border: '2px solid #fff' }} />
+                                            </div>
+                                        </div>
+
+                                        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '8px', background: 'transparent', zIndex: 3 }}>
+                                            <span style={{ fontSize: '1rem', color: 'white', fontWeight: '500', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'center' }}>
+                                                {status.username}
+                                            </span>
+                                        </div>
+                                        {/* Blackish blur overlay behind avatar and name */}
+                                        <div style={{
+                                            position: 'absolute',
+                                            bottom: 0,
+                                            left: 0,
+                                            right: 0,
+                                            height: '100px',
+                                            background: 'linear-gradient(to top, rgba(0, 0, 0, 0.6) 0%, transparent 100%)',
+                                            backdropFilter: 'blur(12px)',
+                                            WebkitBackdropFilter: 'blur(12px)',
+                                            WebkitMaskImage: 'linear-gradient(to top, black 0%, transparent 100%)',
+                                            maskImage: 'linear-gradient(to top, black 0%, transparent 100%)',
+                                            pointerEvents: 'none',
+                                            zIndex: 2,
+                                            borderBottomLeftRadius: '20px',
+                                            borderBottomRightRadius: '20px'
+                                        }}></div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )
+            })()}
+
+
+            {showArchiveModal && (
+                <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0, 0, 0, 0.7)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
+                    <div className="modal-content" style={{ background: 'var(--bg-secondary)', padding: '24px', borderRadius: '16px', width: '720px', maxWidth: '95%', position: 'relative', boxShadow: theme === 'dark' ? '0 10px 30px rgba(0,0,0,0.35)' : '0 10px 30px rgba(0,0,0,0.12)', border: '1px solid var(--border-color)' }}>
+                        <button onClick={() => setShowArchiveModal(false)} style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}>
+                            <FiX size={24} />
+                        </button>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+                            <h2 style={{ margin: 0, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <FiArchive /> Manage Archives
+                            </h2>
+                        </div>
+                        <div style={{ marginBottom: '16px', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+                            Choose chats to move to Archives. Use search to quickly find items.
+                        </div>
+                        <div style={{ marginBottom: '16px' }}>
+                            <input
+                                type="text"
+                                placeholder="Search friends, groups, communities..."
+                                value={archiveSearch}
+                                onChange={(e) => setArchiveSearch(e.target.value)}
+                                style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', border: '1px solid var(--border-color)', background: 'var(--bg-panel)', color: 'var(--text-primary)' }}
+                            />
+                        </div>
+
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxHeight: '60vh', overflowY: 'auto' }}>
+                            {/* Friends Panel */}
+                            <div style={{ background: 'var(--bg-input)', padding: '12px', borderRadius: '12px' }}>
+                                <div style={{ fontWeight: 700, marginBottom: '8px' }}>Friends</div>
+                                {friends.filter(f => !isArchived('friend', f.id) && (!showOnlineOnly || onlineUsers.includes(f.id)) && (!showUnreadOnly || ((unseenMessages[[user.id, f.id].sort().join('-')]?.count || 0) > 0)) && (archiveSearch.trim() === '' || f.username.toLowerCase().includes(archiveSearch.toLowerCase()))).length > 0 ? (
+                                    friends
+                                        .filter(f => !isArchived('friend', f.id))
+                                        .filter(f => !showOnlineOnly || onlineUsers.includes(f.id))
+                                        .filter(f => !showUnreadOnly || ((unseenMessages[[user.id, f.id].sort().join('-')]?.count || 0) > 0))
+                                        .filter(f => (archiveSearch.trim() === '' || f.username.toLowerCase().includes(archiveSearch.toLowerCase())))
+                                        .map(f => (
+                                            <div key={f.id} style={{ display: 'flex', alignItems: 'center', padding: '10px', borderRadius: '10px', marginBottom: '8px', background: 'var(--bg-panel)', border: '1px solid var(--border-color)', boxShadow: theme === 'dark' ? 'none' : '0 2px 8px rgba(0,0,0,0.08)' }}>
+                                                <Avatar src={f.avatar} alt={f.username} style={{ width: '28px', height: '28px', borderRadius: '50%', marginRight: '10px' }} />
+                                                <div style={{ flex: 1, fontWeight: 500 }}>{f.username}</div>
+                                                <button onClick={() => archiveItem('friend', f.id)}
+                                                    style={{ padding: '6px 10px', display: 'inline-flex', alignItems: 'center', gap: '6px', border: '1px solid var(--border-color)', background: 'transparent', color: 'var(--text-primary)', borderRadius: '8px', cursor: 'pointer' }}
+                                                    title="Archive"
+                                                >
+                                                    <FiArchive size={14} /> Archive
+                                                </button>
+                                            </div>
+                                        ))
+                                ) : (
+                                    <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>No friends to archive</div>
+                                )}
+                            </div>
+
+                            {/* Groups Panel */}
+                            <div style={{ background: 'var(--bg-input)', padding: '12px', borderRadius: '12px' }}>
+                                <div style={{ fontWeight: 700, marginBottom: '8px' }}>Groups</div>
+                                {groups.filter(g => !g.isAnnouncementGroup && !isArchived('group', g.id) && (!showOnlineOnly || (g.members || []).some(m => onlineUsers.includes(m.id || m))) && (!showUnreadOnly || ((unseenMessages[g.id]?.count || 0) > 0)) && (archiveSearch.trim() === '' || g.name.toLowerCase().includes(archiveSearch.toLowerCase()))).length > 0 ? (
+                                    groups
+                                        .filter(g => !g.isAnnouncementGroup && !isArchived('group', g.id))
+                                        .filter(g => !showOnlineOnly || (g.members || []).some(m => onlineUsers.includes(m.id || m)))
+                                        .filter(g => !showUnreadOnly || ((unseenMessages[g.id]?.count || 0) > 0))
+                                        .filter(g => (archiveSearch.trim() === '' || g.name.toLowerCase().includes(archiveSearch.toLowerCase())))
+                                        .map(g => (
+                                            <div key={g.id} style={{ display: 'flex', alignItems: 'center', padding: '10px', borderRadius: '10px', marginBottom: '8px', background: 'var(--bg-panel)', border: '1px solid var(--border-color)', boxShadow: theme === 'dark' ? 'none' : '0 2px 8px rgba(0,0,0,0.08)' }}>
+                                                <div style={{ fontWeight: 500, flex: 1 }}>{g.name}</div>
+                                                <button onClick={() => archiveItem('group', g.id)}
+                                                    style={{ padding: '6px 10px', display: 'inline-flex', alignItems: 'center', gap: '6px', border: '1px solid var(--border-color)', background: 'transparent', color: 'var(--text-primary)', borderRadius: '8px', cursor: 'pointer' }}
+                                                    title="Archive"
+                                                >
+                                                    <FiArchive size={14} /> Archive
+                                                </button>
+                                            </div>
+                                        ))
+                                ) : (
+                                    <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>No groups to archive</div>
+                                )}
+                            </div>
+
+                            {/* Communities Panel */}
+                            <div style={{ background: 'var(--bg-input)', padding: '12px', borderRadius: '12px' }}>
+                                <div style={{ fontWeight: 700, marginBottom: '8px' }}>Communities</div>
+                                {communities.filter(c => !isArchived('community', c.id) && (!showOnlineOnly || (c.members || []).some(m => onlineUsers.includes(m))) && (archiveSearch.trim() === '' || c.name.toLowerCase().includes(archiveSearch.toLowerCase()))).length > 0 ? (
+                                    communities
+                                        .filter(c => !isArchived('community', c.id))
+                                        .filter(c => !showOnlineOnly || (c.members || []).some(m => onlineUsers.includes(m)))
+                                        .filter(c => (archiveSearch.trim() === '' || c.name.toLowerCase().includes(archiveSearch.toLowerCase())))
+                                        .map(c => (
+                                            <div key={c.id} style={{ display: 'flex', alignItems: 'center', padding: '10px', borderRadius: '10px', marginBottom: '8px', background: 'var(--bg-panel)', border: '1px solid var(--border-color)', boxShadow: theme === 'dark' ? 'none' : '0 2px 8px rgba(0,0,0,0.08)' }}>
+                                                {(() => {
+                                                    let src;
+                                                    try { src = localStorage.getItem('community_icon_' + c.id) || c.icon; } catch (_) { src = c.icon; }
+                                                    const key = `arch-community-${c.id}-${refreshTick}-${src?.length || 0}`;
+                                                    return (
+                                                        <Avatar key={key} src={src} alt={c.name} style={{ width: '28px', height: '28px', borderRadius: '6px', marginRight: '10px', objectFit: 'cover' }} />
+                                                    );
+                                                })()}
+                                                <div style={{ flex: 1, fontWeight: 500 }}>{c.name}</div>
+                                                <button onClick={() => archiveItem('community', c.id)}
+                                                    style={{ padding: '6px 10px', display: 'inline-flex', alignItems: 'center', gap: '6px', border: '1px solid var(--border-color)', background: 'transparent', color: 'var(--text-primary)', borderRadius: '8px', cursor: 'pointer' }}
+                                                    title="Archive"
+                                                >
+                                                    <FiArchive size={14} /> Archive
+                                                </button>
+                                            </div>
+                                        ))
+                                ) : (
+                                    <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>No communities to archive</div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {showUnarchiveModal && (
+                <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0, 0, 0, 0.7)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
+                    <div className="modal-content" style={{ background: 'var(--bg-secondary)', padding: '24px', borderRadius: '16px', width: '720px', maxWidth: '95%', position: 'relative', boxShadow: theme === 'dark' ? '0 10px 30px rgba(0,0,0,0.35)' : '0 10px 30px rgba(0,0,0,0.12)', border: '1px solid var(--border-color)' }}>
+                        <button onClick={() => setShowUnarchiveModal(false)} style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}>
+                            <FiX size={24} />
+                        </button>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+                            <h2 style={{ margin: 0, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <FiArchive /> Remove from Archives
+                            </h2>
+                        </div>
+                        <div style={{ marginBottom: '16px', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+                            Choose chats to unarchive. They will return to their respective sections.
+                        </div>
+                        <div style={{ marginBottom: '16px' }}>
+                            <input
+                                type="text"
+                                placeholder="Search archived chats..."
+                                value={archiveSearch}
+                                onChange={(e) => setArchiveSearch(e.target.value)}
+                                style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', border: '1px solid var(--border-color)', background: 'var(--bg-panel)', color: 'var(--text-primary)' }}
+                            />
+                        </div>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxHeight: '60vh', overflowY: 'auto' }}>
+                            {/* Archived Friends Panel */}
+                            {(() => {
+                                const list = archivedItems.filter(i => i.type === 'friend').map(i => friends.find(f => String(f.id) === String(i.id))).filter(Boolean);
+                                const filtered = list.filter(f => (archiveSearch.trim() === '' || f.username.toLowerCase().includes(archiveSearch.toLowerCase())));
+                                if (filtered.length === 0) return null;
+                                return (
+                                    <div style={{ background: 'var(--bg-input)', padding: '12px', borderRadius: '12px' }}>
+                                        <div style={{ fontWeight: 700, marginBottom: '8px' }}>Friends</div>
+                                        {filtered.map(f => (
+                                            <div key={f.id} style={{ display: 'flex', alignItems: 'center', padding: '10px', borderRadius: '10px', marginBottom: '8px', background: 'var(--bg-panel)', border: '1px solid var(--border-color)', boxShadow: theme === 'dark' ? 'none' : '0 2px 8px rgba(0,0,0,0.08)' }}>
+                                                <Avatar src={f.avatar} alt={f.username} style={{ width: '28px', height: '28px', borderRadius: '50%', marginRight: '10px' }} />
+                                                <div style={{ flex: 1, fontWeight: 500 }}>{f.username}</div>
+                                                <button onClick={() => unarchiveItem('friend', f.id)}
+                                                    style={{ padding: '6px 10px', display: 'inline-flex', alignItems: 'center', gap: '6px', border: '1px solid var(--border-color)', background: 'transparent', color: 'var(--text-primary)', borderRadius: '8px', cursor: 'pointer' }}
+                                                    title="Unarchive"
+                                                >
+                                                    <FiUpload size={14} /> Unarchive
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                );
+                            })()}
+
+                            {/* Archived Groups Panel */}
+                            {(() => {
+                                const list = archivedItems.filter(i => i.type === 'group').map(i => groups.find(g => String(g.id) === String(i.id))).filter(Boolean);
+                                const filtered = list.filter(g => (archiveSearch.trim() === '' || g.name.toLowerCase().includes(archiveSearch.toLowerCase())));
+                                if (filtered.length === 0) return null;
+                                return (
+                                    <div style={{ background: 'var(--bg-input)', padding: '12px', borderRadius: '12px' }}>
+                                        <div style={{ fontWeight: 700, marginBottom: '8px' }}>Groups</div>
+                                        {filtered.map(g => (
+                                            <div key={g.id} style={{ display: 'flex', alignItems: 'center', padding: '10px', borderRadius: '10px', marginBottom: '8px', background: 'var(--bg-panel)', border: '1px solid var(--border-color)', boxShadow: theme === 'dark' ? 'none' : '0 2px 8px rgba(0,0,0,0.08)' }}>
+                                                <div style={{ fontWeight: 500, flex: 1 }}>{g.name}</div>
+                                                <button onClick={() => unarchiveItem('group', g.id)}
+                                                    style={{ padding: '6px 10px', display: 'inline-flex', alignItems: 'center', gap: '6px', border: '1px solid var(--border-color)', background: 'transparent', color: 'var(--text-primary)', borderRadius: '8px', cursor: 'pointer' }}
+                                                    title="Unarchive"
+                                                >
+                                                    <FiUpload size={14} /> Unarchive
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                );
+                            })()}
+
+                            {/* Archived Communities Panel */}
+                            {(() => {
+                                const list = archivedItems.filter(i => i.type === 'community').map(i => communities.find(c => String(c.id) === String(i.id))).filter(Boolean);
+                                const filtered = list.filter(c => (archiveSearch.trim() === '' || c.name.toLowerCase().includes(archiveSearch.toLowerCase())));
+                                if (filtered.length === 0) return null;
+                                return (
+                                    <div style={{ background: 'var(--bg-input)', padding: '12px', borderRadius: '12px' }}>
+                                        <div style={{ fontWeight: 700, marginBottom: '8px' }}>Communities</div>
+                                        {filtered.map(c => (
+                                            <div key={c.id} style={{ display: 'flex', alignItems: 'center', padding: '10px', borderRadius: '10px', marginBottom: '8px', background: 'var(--bg-panel)', border: '1px solid var(--border-color)', boxShadow: theme === 'dark' ? 'none' : '0 2px 8px rgba(0,0,0,0.08)' }}>
+                                                <Avatar src={c.icon} alt={c.name} style={{ width: '28px', height: '28px', borderRadius: '50%', marginRight: '10px' }} />
+                                                <div style={{ flex: 1, fontWeight: 500 }}>{c.name}</div>
+                                                <button onClick={() => unarchiveItem('community', c.id)}
+                                                    style={{ padding: '6px 10px', display: 'inline-flex', alignItems: 'center', gap: '6px', border: '1px solid var(--border-color)', background: 'transparent', color: 'var(--text-primary)', borderRadius: '8px', cursor: 'pointer' }}
+                                                    title="Unarchive"
+                                                >
+                                                    <FiUpload size={14} /> Unarchive
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                );
+                            })()}
+
+                            {archivedItems.length === 0 && (
+                                <div style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '20px' }}>
+                                    No archived chats found.
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Scrollable content: Channels + rest */}
+            <div style={{ flex: 1, overflowY: 'auto', overflowX: 'visible', scrollbarWidth: 'none', padding: '0 0px', scrollBehavior: 'smooth' }}>
+                {/* Local Top Blur for Sidebar List (Under Stories) */}
+                <div className="blur-fade-top" style={{ position: 'sticky', top: 0, zIndex: 10, width: '100%' }} />
+
+                <style>{`
+                    @keyframes channel-bump {
+                        0% { transform: translateY(0) scale(1); }
+                        20% { transform: translateY(-2px) scale(1.02); }
+                        40% { transform: translateY(0) scale(1); }
+                        100% { transform: translateY(0) scale(1); }
+                    }
+                    @keyframes channel-fade-up {
+                        0%   { opacity: 0.10; transform: translateY(0)    scale(0.98); }
+                        20%  { opacity: 0.45; transform: translateY(-2px) scale(1.02); }
+                        40%  { opacity: 0.30; transform: translateY(0px)    scale(1.00); }
+                        60%  { opacity: 0.35; transform: translateY(0px)  scale(0.99); }
+                        100% { opacity: 0.12; transform: translateY(1px)    scale(1.00); }
+                    }
+                    /* Smooth glow synced with bump (soft rise and fall around the peak) */
+                    @keyframes channel-accent-pulse {
+                        0%   { opacity: 0;   transform: scale(1.00); }
+                        12%  { opacity: 0.22; transform: scale(1.01); }
+                        20%  { opacity: 0.85; transform: scale(1.03); }
+                        28%  { opacity: 0.22; transform: scale(1.01); }
+                        40%  { opacity: 0.00; transform: scale(1.00); }
+                        100% { opacity: 0.00; transform: scale(1.00); }
+                    }
+                    /* Motion + accent color indicator */
+                    .channel-alert-anim {
+                        animation: channel-bump 900ms ease-out infinite;
+                        will-change: transform;
+                        position: relative;
+                        overflow: visible;
+                    }
+                    /* Soft glow using theme accent (behind content) */
+                    .channel-alert-anim::after {
+                        content: '';
+                        position: absolute;
+                        inset: -6px;
+                        border-radius: 12px;
+                        background: var(--accent-light);
+                        filter: blur(20px);
+                        opacity: 0; /* default off; keyframes control visibility */
+                        animation: channel-accent-pulse 900ms ease-in-out infinite;
+                        will-change: opacity, transform, filter;
+                        pointer-events: none;
+                        z-index: 1;
+                    }
+                    /* Remove solid left bar as requested */
+                `}</style>
+
+                {/* Channels Section (under All or Channels chip) */}
+                {(topFilter === 'All' || topFilter === 'Channels') && (!activeSection || activeSection === 'Channels') && (
+                    <div className="channels-section" style={{ marginBottom: '12px' }}>
+                        <div className="section-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <div
+                                onClick={() => {
+                                    if (activeSection === 'Channels') {
+                                        setActiveSection(null);
+                                    } else {
+                                        setActiveSection('Channels');
+                                        setIsChannelsExpanded(true);
+                                    }
+                                }}
+                                style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', gap: '8px' }}
+                            >
+                                {activeSection === 'Channels' && <FiArrowLeft />}
+                                <span>Channels</span>
+                                {Object.values(channelAlerts || {}).some(Boolean) && (
+                                    <span style={{
+                                        fontSize: '0.7rem',
+                                        padding: '2px 8px',
+                                        borderRadius: '9999px',
+                                        border: '1px solid var(--accent-primary)',
+                                        color: 'var(--accent-primary)',
+                                        background: 'transparent',
+                                        whiteSpace: 'nowrap'
+                                    }}>New activity</span>
+                                )}
+                                {!activeSection && (isChannelsExpanded ? <FiChevronUp /> : <FiChevronDown />)}
+                            </div>
+                            <button
+                                onClick={() => setShowCreateChannel(true)}
+                                title="Create Channel"
+                                style={{
+                                    cursor: 'pointer', width: '28px', height: '28px', borderRadius: '50%',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: 'none'
+                                }}
+                            >
+                                <FiPlus size={16} />
+                            </button>
+                        </div>
+
+                        <div style={{
+                            maxHeight: isChannelsExpanded ? '1000px' : '0',
+                            opacity: isChannelsExpanded ? 1 : 0,
+                            overflow: 'visible',
+                            transition: 'max-height 0.4s ease-in-out, opacity 0.3s ease-in-out'
+                        }}>
+                            {channels.length > 0 ? (
+                                channels
+                                    .filter(ch => !showUnreadOnly || !!channelAlerts[ch.id] || channelManualUnread[ch.id])
+                                    .map(channel => {
+                                        const isCreator = String(channel.createdBy) === String(user.id);
+                                        return (
+                                            <div key={channel.id} style={{ display: 'flex', alignItems: 'center', marginBottom: '4px', width: '90%', marginLeft: 'auto', marginRight: 'auto' }}>
+                                                <div
+                                                    onClick={(e) => {
+                                                        if (!isEditMode) onSelectChat({ ...channel, isChannel: true });
+                                                    }}
+                                                    onContextMenu={(e) => {
+                                                        if (isCreator) {
+                                                            e.preventDefault();
+                                                            handleChannelContextMenu(e, channel);
+                                                        }
+                                                    }}
+                                                    className={`chat-item channel-item ${currentChat?.id === channel.id ? 'active' : ''} ${channelAlerts[channel.id] ? 'channel-alert-anim' : ''}`}
+                                                    style={{ display: 'flex', alignItems: 'center', padding: '8px', borderRadius: '12px', margin: 0, cursor: 'pointer', transition: 'background 0.2s, transform 0.14s ease', position: 'relative', zIndex: 3, boxShadow: 'none', background: 'var(--bg-secondary)', flex: 1, marginRight: '8px' }}
+                                                >
+                                                    {/* removed overlay highlight box for channel rows */}
+                                                    <div style={{ position: 'relative', marginRight: '12px' }}>
+                                                        {channel.photo ? (
+                                                            <Avatar src={channel.photo} alt={channel.name} style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover' }} />
+                                                        ) : (
+                                                            <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'var(--bg-input)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}>
+                                                                <FiHash size={20} />
+                                                            </div>
+                                                        )}
+                                                        {isEditMode && isCreator && (
+                                                            <button
+                                                                onClick={(e) => { e.stopPropagation(); handleDeleteChannel(channel); }}
+                                                                title="Delete Channel"
+                                                                style={{ position: 'absolute', top: '-8px', left: '-8px', background: '#fee2e2', border: '1px solid #ef4444', color: '#ef4444', borderRadius: '50%', width: '26px', height: '26px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.3)', cursor: 'pointer', zIndex: 10 }}
+                                                            >
+                                                                <FiTrash2 size={12} />
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                    <div style={{ flex: 1, overflow: 'hidden' }}>
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                                <span style={{ fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{channel.name}</span>
+                                                            </div>
+                                                        </div>
+                                                        <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                            {channel.members} subscribers
+                                                        </div>
+                                                    </div>
+                                                    <div className="friend-right" style={{ flexShrink: 0 }}>
+                                                        {channelManualUnread[channel.id] && (
+                                                            <div
+                                                                style={{
+                                                                    background: 'var(--accent-primary)',
+                                                                    width: '15px',
+                                                                    height: '15px',
+                                                                    borderRadius: '50%',
+                                                                    display: 'inline-block',
+                                                                    marginRight: '6px',
+                                                                    padding: 0,
+                                                                    lineHeight: 0,
+                                                                    flex: '0 0 auto',
+                                                                    boxSizing: 'content-box'
+                                                                }}
+                                                            />
+                                                        )}
+                                                    </div>
+                                                    <button className="friend-arrow" title="More" onClick={(e) => { e.stopPropagation(); const rect = e.currentTarget.getBoundingClientRect(); setOpenChannelMenu({ id: channel.id, top: rect.top, left: rect.right }); }}>
+                                                        <svg width="20" height="20" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+                                                            <polyline points="96 48 176 128 96 208" fill="none" stroke={theme === 'dark' ? '#ffffff' : '#000000'} strokeWidth="16" strokeLinecap="round" strokeLinejoin="round" />
+                                                        </svg>
+                                                    </button>
+                                                </div>
+
+                                            </div>
+                                        );
+                                    })
+                            ) : (
+                                <div style={{ padding: '10px', color: 'var(--text-secondary)', fontSize: '0.9rem', textAlign: 'center' }}>
+                                    No channels yet
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
+
+                {showCreateChannel && (
+                    <CreateChannelModal
+                        onClose={() => setShowCreateChannel(false)}
+                        onCreate={createChannel}
+                    />
+                )}
+
+                {/* Continue scrollable content */}
+                <div>
+                    {(topFilter === 'Unread') && (
+                        <div className="unread-section" style={{ marginBottom: '24px' }}>
+                            <div className="section-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <span>Unread</span>
+                            </div>
+
+                            {/* Unread Channels */}
+                            {channels.filter(ch => {
+                                const cid = String(ch.id);
+                                const hasAlert = !!channelAlerts?.[cid] && !channelReadOverrides?.[cid];
+                                const hasManual = !!channelManualUnread?.[cid];
+                                return !isArchived('channel', ch.id) && (hasAlert || hasManual);
+                            }).length > 0 && (
+                                    <div style={{ marginTop: '8px' }}>
+                                        {channels
+                                            .filter(ch => { const cid = String(ch.id); const hasAlert = !!channelAlerts?.[cid] && !channelReadOverrides?.[cid]; const hasManual = !!channelManualUnread?.[cid]; return !isArchived('channel', ch.id) && (hasAlert || hasManual); })
+                                            .map(channel => {
+                                                const isCreator = String(channel.createdBy) === String(user.id);
+                                                return (
+                                                    <div key={`unread-ch-${channel.id}`} style={{ display: 'flex', alignItems: 'center', marginBottom: '6px', width: '90%', marginLeft: 'auto', marginRight: 'auto' }}>
+                                                        <div
+                                                            onClick={(e) => { onSelectChat({ ...channel, isChannel: true }); }}
+                                                            onContextMenu={(e) => {
+                                                                if (isCreator) {
+                                                                    e.preventDefault();
+                                                                    handleChannelContextMenu(e, channel);
+                                                                }
+                                                            }}
+                                                            className={`chat-item channel-item ${currentChat?.id === channel.id ? 'active' : ''}`}
+                                                            style={{ display: 'flex', alignItems: 'center', padding: '8px', borderRadius: '12px', margin: 0, cursor: 'pointer', transition: 'background 0.2s, transform 0.14s ease', position: 'relative', zIndex: 3, boxShadow: 'none', background: 'var(--bg-secondary)', flex: 1, marginRight: '8px' }}
+                                                        >
+                                                            <div style={{ position: 'relative', marginRight: '12px' }}>
+                                                                {channel.photo ? (
+                                                                    <Avatar src={channel.photo} alt={channel.name} style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover' }} />
+                                                                ) : (
+                                                                    <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'var(--bg-input)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}>
+                                                                        <FiHash size={20} />
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                            <div style={{ flex: 1, overflow: 'hidden' }}>
+                                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
+                                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                                        <span style={{ fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{channel.name}</span>
+                                                                    </div>
+                                                                </div>
+                                                                <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                                    {channel.members} subscribers
+                                                                </div>
+                                                            </div>
+                                                            <div className="friend-right" style={{ flexShrink: 0 }}>
+                                                                {channelManualUnread?.[String(channel.id)] && (
+                                                                    <div
+                                                                        style={{
+                                                                            background: 'var(--accent-primary)',
+                                                                            width: '10px',
+                                                                            height: '10px',
+                                                                            borderRadius: '50%',
+                                                                            display: 'inline-block',
+                                                                            marginRight: '6px',
+                                                                            padding: 0,
+                                                                            lineHeight: 0,
+                                                                            flex: '0 0 auto',
+                                                                            boxSizing: 'content-box'
+                                                                        }}
+                                                                    />
+                                                                )}
+                                                            </div>
+                                                            <button className="friend-arrow" title="More" onClick={(e) => { e.stopPropagation(); const rect = e.currentTarget.getBoundingClientRect(); setOpenChannelMenu({ id: channel.id, top: rect.top, left: rect.right }); }}>
+                                                                <svg width="20" height="20" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+                                                                    <polyline points="96 48 176 128 96 208" fill="none" stroke={theme === 'dark' ? '#ffffff' : '#000000'} strokeWidth="16" strokeLinecap="round" strokeLinejoin="round" />
+                                                                </svg>
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                    </div>
+                                )}
+
+                            {/* Unread Groups (excluding those in communities) */}
+                            {groups.filter(g => !isArchived('group', g.id) && !g.communityId && (((unseenMessages[g.id]?.count || 0) > 0) || manualGroupUnread.includes(String(g.id)))).length > 0 && (
+                                <div style={{ marginTop: '8px' }}>
+                                    {groups
+                                        .filter(g => !isArchived('group', g.id) && !g.communityId && (((unseenMessages[g.id]?.count || 0) > 0) || manualGroupUnread.includes(String(g.id))))
+                                        .map(group => (
+                                            <div key={`unread-g-${group.id}`} className={`chat-item friend-row fade-in-up tap-scale ${currentChat?.id === group.id ? 'active' : ''}`} onClick={() => onSelectChat({ ...group, isGroup: true, showInfo: true })} style={{ boxShadow: theme === 'dark' ? 'var(--shadow-card)' : '0 10px 24px rgba(0,0,0,0.16)', borderRadius: '12px', marginBottom: '10px', position: 'relative', width: '90%', marginLeft: 'auto', marginRight: 'auto' }}>
+                                                <div style={{ position: 'relative', width: '50px', height: '50px', marginRight: '12px' }}>
+                                                    {group.members.slice(0, 3).map((member, i) => (
+                                                        <Avatar key={member.id} src={member.avatar} alt={member.username} style={{ width: '32px', height: '32px', borderRadius: '50%', position: 'absolute', left: `${i * 10}px`, top: '50%', transform: 'translateY(-50%)', border: '1px solid #808080', boxShadow: '0 2px 8px rgba(0,0,0,1)', zIndex: 3 - i, objectFit: 'cover' }} />
+                                                    ))}
+                                                </div>
+                                                <div style={{ flex: 1 }}>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
+                                                            <span style={{ fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap', overflowX: 'auto', overflowY: 'hidden', maxWidth: '100%', color: currentChat?.id === group.id ? '#fff' : 'var(--text-primary)' }}>{group.name}</span>
+                                                        </div>
+                                                    </div>
+                                                    <div style={{ fontSize: '0.8rem', color: currentChat?.id === group.id ? 'rgba(255,255,255,0.8)' : 'var(--text-secondary)', marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                        {group.about || `${group.members.length} members`}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                </div>
+                            )}
+
+                            {/* Unread Communities (if announcement or any subgroup has unseen) */}
+                            {communities.filter(c => {
+                                try {
+                                    const rawIds = [c.announcementGroupId, ...(c.subGroups || [])].filter(Boolean).map(String);
+                                    const ids = Array.from(new Set(rawIds));
+                                    let total = 0;
+                                    ids.forEach(sid => { const u = unseenMessages[sid] || {}; const cnt = Number(u.count || 0); if (!Number.isNaN(cnt)) total += cnt; });
+                                    return total > 0 && !isArchived('community', c.id);
+                                } catch (_) { return false; }
+                            }).length > 0 && (
+                                    <div style={{ marginTop: '8px' }}>
+                                        {communities
+                                            .filter(c => {
+                                                try {
+                                                    const rawIds = [c.announcementGroupId, ...(c.subGroups || [])].filter(Boolean).map(String);
+                                                    const ids = Array.from(new Set(rawIds));
+                                                    let total = 0;
+                                                    ids.forEach(sid => { const u = unseenMessages[sid] || {}; const cnt = Number(u.count || 0); if (!Number.isNaN(cnt)) total += cnt; });
+                                                    return total > 0 && !isArchived('community', c.id);
+                                                } catch (_) { return false; }
+                                            })
+                                            .map(community => {
+                                                // compute summary for right side
+                                                const rawIds = [community.announcementGroupId, ...(community.subGroups || [])].filter(Boolean).map(String);
+                                                const ids = Array.from(new Set(rawIds));
+                                                let total = 0; let time = '';
+                                                ids.forEach(sid => { const u = unseenMessages[sid] || {}; const cnt = Number(u.count || 0); if (!Number.isNaN(cnt)) total += cnt; if (!time && u.time) time = u.time; });
+
+                                                const isExpanded = expandedCommunities.includes(community.id);
+
+                                                return (
+                                                    <div key={`unread-com-${community.id}`} style={{
+                                                        marginBottom: '12px',
+                                                        backgroundColor: isExpanded ? 'var(--bg-secondary)' : 'transparent',
+                                                        borderRadius: '16px',
+                                                        transition: 'all 0.3s ease',
+                                                        overflow: 'visible',
+                                                        width: '90%',
+                                                        marginLeft: 'auto',
+                                                        marginRight: 'auto'
+                                                    }}>
+                                                        <div
+                                                            className={`chat-item ${currentChat?.id === community.id ? 'active' : ''}`}
+                                                            onClick={() => {
+                                                                toggleCommunityExpansion(community.id);
+                                                            }}
+                                                            style={{
+                                                                width: '100%', marginLeft: 'auto', marginRight: 'auto',
+                                                                cursor: 'pointer', position: 'relative', zIndex: 2,
+                                                                transition: 'all 0.3s ease', boxShadow: theme === 'dark' ? 'var(--shadow-card)' : '0 10px 24px rgba(0,0,0,0.16)', borderRadius: '12px'
+                                                            }}
+                                                        >
+                                                            <div style={{ position: 'relative' }}>
+                                                                {(() => {
+                                                                    let baseSrc;
+                                                                    try { baseSrc = localStorage.getItem('community_icon_' + community.id) || community.icon; } catch (_) { baseSrc = community.icon; }
+                                                                    let ver = '';
+                                                                    try { ver = localStorage.getItem('community_icon_ver_' + community.id) || ''; } catch (_) { ver = ''; }
+                                                                    const src = baseSrc ? (ver ? `${baseSrc}${baseSrc.includes('?') ? '&' : '?'}v=${ver}` : baseSrc) : '';
+                                                                    const key = `unread-community-${community.id}-${refreshTick}-${baseSrc?.length || 0}-${ver}`;
+                                                                    return (
+                                                                        <Avatar key={key} src={src} alt={community.name} className="avatar" style={{ borderRadius: '12px', filter: isEditMode ? 'brightness(0.6)' : 'none' }} />
+                                                                    );
+                                                                })()}
+                                                                {(() => {
+                                                                    const anyOnline = (community.members || []).some(m => onlineUsers.includes(m));
+                                                                    return (
+                                                                        <div style={{ position: 'absolute', bottom: 0, right: 0, width: '16px', height: '16px', background: anyOnline ? 'var(--status-online)' : '#ff6b6b', borderRadius: '50%', border: '3px solid var(--bg-panel)' }} />
+                                                                    );
+                                                                })()}
+                                                            </div>
+                                                            <div style={{ flex: 1, marginLeft: '12px' }}>
+                                                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0px', alignItems: 'center' }}>
+                                                                    <span className="name-scroll" style={{ fontWeight: 600, whiteSpace: 'nowrap', display: 'block', width: '7ch', overflowX: 'auto', overflowY: 'hidden', lineHeight: '1', color: currentChat?.id === community.id ? '#fff' : 'var(--text-primary)' }}>{community.name}</span>
+                                                                </div>
+                                                                <div style={{ fontSize: '0.8rem', color: currentChat?.id === community.id ? 'rgba(255,255,255,0.8)' : 'var(--text-secondary)', marginTop: '2px' }}>
+                                                                    {community.members.length} members
+                                                                </div>
+                                                            </div>
+                                                            <div style={{ color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '4px', marginLeft: 'auto' }}>
+                                                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '4px', minWidth: '28px' }}>
+                                                                    {time && (
+                                                                        <span style={{ fontSize: '0.7rem', color: currentChat?.id === community.id ? 'rgba(255,255,255,0.8)' : 'var(--text-secondary)', lineHeight: 1, textAlign: 'center', whiteSpace: 'nowrap' }}>{time}</span>
+                                                                    )}
+                                                                    {total > 0 && (
+                                                                        <div className="badge" style={{ background: 'var(--accent-primary)', color: '#fff', minWidth: '20px', height: '20px', padding: '0 6px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '10px', fontSize: '0.75rem', lineHeight: 1 }}>
+                                                                            {total}
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                                <div style={{
+                                                                    width: '26px',
+                                                                    height: '26px',
+                                                                    borderRadius: '50%',
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    justifyContent: 'center',
+                                                                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                                                                    transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                                                                    background: theme === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
+                                                                    marginLeft: '4px'
+                                                                }}>
+                                                                    <FiChevronDown size={16} />
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Sub-groups Stack (smooth expand) */}
+                                                        <div style={{
+                                                            position: 'relative',
+                                                            zIndex: 1,
+                                                            overflow: isExpanded ? 'visible' : 'hidden',
+                                                            transition: 'max-height 0.4s ease-in-out, opacity 0.3s ease-in-out',
+                                                            maxHeight: isExpanded ? '1200px' : '0',
+                                                            opacity: isExpanded ? 1 : 0,
+                                                            background: 'transparent',
+                                                            border: 'none',
+                                                            boxShadow: 'none'
+                                                        }}>
+                                                            <div style={{
+
+                                                                display: 'flex',
+                                                                flexDirection: 'column',
+                                                                alignItems: 'center',
+                                                                background: 'transparent'
+                                                            }}>
+                                                                {/* Announcements - Only if unread */}
+                                                                {(() => {
+                                                                    const annId = community.announcementGroupId;
+                                                                    const u = unseenMessages[annId] || {};
+                                                                    const cnt = Number(u.count || 0);
+                                                                    if (cnt > 0) {
+                                                                        return (
+                                                                            <div style={{ width: '100%', paddingBottom: 0, borderRadius: '12px', padding: 0 }}>
+                                                                                <div
+                                                                                    className={`chat-item ${currentChat?.id === annId ? 'active' : ''}`}
+                                                                                    onClick={() => {
+                                                                                        const group = groups.find(g => g.id === annId);
+                                                                                        if (group) {
+                                                                                            onSelectChat({ ...group, isGroup: true, showInfo: true });
+                                                                                        }
+                                                                                    }}
+                                                                                    style={{
+                                                                                        padding: '8px',
+                                                                                        borderRadius: '8px',
+                                                                                        marginBottom: '8px',
+                                                                                        display: 'flex',
+                                                                                        alignItems: 'center',
+                                                                                        justifyContent: 'space-between',
+                                                                                        boxShadow: theme === 'dark' ? '0 2px 8px rgba(0,0,0,0.2)' : '0 1px 3px rgba(0,0,0,0.1)',
+                                                                                        width: '85%',
+                                                                                        background: currentChat?.id === annId ? 'var(--accent-primary)' : (theme === 'dark' ? 'rgba(255, 255, 255, 0.04)' : '#fff'),
+                                                                                        color: currentChat?.id === annId ? '#fff' : 'inherit'
+                                                                                    }}
+                                                                                >
+                                                                                    <div style={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: 0 }}>
+                                                                                        <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: currentChat?.id === annId ? '#fff' : 'var(--bg-input)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: currentChat?.id === annId ? 'var(--accent-primary)' : (theme === 'dark' ? 'var(--text-secondary)' : 'var(--text-primary)') }}>
+                                                                                            <FiMoreVertical size={14} />
+                                                                                        </div>
+                                                                                        <div style={{ marginLeft: '10px', fontSize: '0.9rem', fontWeight: 500 }}>Announcements</div>
+                                                                                    </div>
+                                                                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px', alignSelf: 'stretch', justifyContent: 'center' }}>
+                                                                                        <div style={{ background: 'var(--accent-primary)', color: '#fff', borderRadius: '12px', padding: '2px 8px', fontSize: '0.7rem', fontWeight: 600 }}>
+                                                                                            {cnt}
+                                                                                        </div>
+                                                                                    </div>
+                                                                                </div>
+                                                                            </div>
+                                                                        );
+                                                                    }
+                                                                    return null;
+                                                                })()}
+
+                                                                {/* Other Sub-groups (filtered by unread) */}
+                                                                {community.subGroups
+                                                                    .map(groupId => groups.find(g => g.id === groupId))
+                                                                    .filter(group => {
+                                                                        if (!group) return false;
+                                                                        return ((unseenMessages[group.id]?.count || 0) > 0) || manualGroupUnread.includes(String(group.id));
+                                                                    })
+                                                                    .map(group => (
+                                                                        <div
+                                                                            key={group.id}
+                                                                            className={`chat-item fade-in-up tap-scale ${currentChat?.id === group.id && currentChat?.sourceCommunityId === community.id ? 'active' : ''}`}
+                                                                            onClick={() => onSelectChat({ ...group, isGroup: true, showInfo: true, sourceCommunityId: community.id })}
+                                                                            style={{
+                                                                                padding: '8px',
+                                                                                borderRadius: '8px',
+                                                                                marginBottom: '8px',
+                                                                                display: 'flex',
+                                                                                alignItems: 'center',
+                                                                                justifyContent: 'space-between',
+                                                                                boxShadow: theme === 'dark' ? '0 2px 8px rgba(0,0,0,0.2)' : '0 1px 3px rgba(0,0,0,0.1)',
+                                                                                width: '85%',
+                                                                                background: (currentChat?.id === group.id && currentChat?.sourceCommunityId === community.id) ? 'var(--accent-primary)' : (theme === 'dark' ? 'rgba(255, 255, 255, 0.04)' : '#fff'),
+                                                                                color: (currentChat?.id === group.id && currentChat?.sourceCommunityId === community.id) ? '#fff' : 'inherit'
+                                                                            }}
+                                                                        >
+                                                                            <div style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
+                                                                                <div style={{ position: 'relative', width: '28px', height: '28px', borderRadius: '8px', background: (currentChat?.id === group.id && currentChat?.sourceCommunityId === community.id) ? '#fff' : 'var(--bg-input)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: (currentChat?.id === group.id && currentChat?.sourceCommunityId === community.id) ? 'var(--accent-primary)' : (theme === 'dark' ? 'var(--text-secondary)' : 'var(--text-primary)'), boxShadow: theme === 'dark' ? '0 2px 8px rgba(0,0,0,0.7)' : '0 1px 3px rgba(0,0,0,0.12)' }}>
+                                                                                    <FiHash size={14} />
+                                                                                </div>
+                                                                                <div style={{ marginLeft: '10px', fontSize: '0.9rem', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{group.name}</div>
+                                                                            </div>
+                                                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px', alignSelf: 'stretch', justifyContent: 'center' }}>
+                                                                                {unseenMessages[group.id]?.time && (
+                                                                                    <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
+                                                                                        {unseenMessages[group.id].time}
+                                                                                    </div>
+                                                                                )}
+                                                                                {unseenMessages[group.id]?.count > 0 && (
+                                                                                    <div style={{ background: 'var(--accent-primary)', color: '#fff', borderRadius: '12px', padding: '2px 8px', fontSize: '0.7rem', fontWeight: 600 }}>
+                                                                                        {unseenMessages[group.id].count}
+                                                                                    </div>
+                                                                                )}
+                                                                                {manualGroupUnread.includes(String(group.id)) && !(unseenMessages[group.id]?.count > 0) && (
+                                                                                    <div className="badge" style={{ background: 'var(--accent-primary)', width: '20px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '10px' }} />
+                                                                                )}
+                                                                            </div>
+                                                                        </div>
+                                                                    ))}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                    </div>
+                                )}
+
+                            {/* Unread Friends */}
+                            {friends.filter(f => !isArchived('friend', f.id)).filter(f => { const rid = [user.id, f.id].sort().join('-'); const u = unseenMessages[rid] || {}; const o = unseenOverrides[rid]; const useOverride = o && u && o.timestamp === u.timestamp; const cnt = useOverride ? (o.count || 0) : (u.count || 0); return (cnt > 0) || manualFriendUnread.includes(String(f.id)); }).length > 0 && (
+                                <div style={{ marginTop: '8px' }}>
+                                    {friends
+                                        .filter(f => !isArchived('friend', f.id))
+                                        .filter(f => { const rid = [user.id, f.id].sort().join('-'); const u = unseenMessages[rid] || {}; const o = unseenOverrides[rid]; const useOverride = o && u && o.timestamp === u.timestamp; const cnt = useOverride ? (o.count || 0) : (u.count || 0); return (cnt > 0) || manualFriendUnread.includes(String(f.id)); })
+                                        .map(friend => {
+                                            const rid = [user.id, friend.id].sort().join('-');
+                                            const u = unseenMessages[rid] || {};
+                                            const o = unseenOverrides[rid];
+                                            const useOverride = o && u && o.timestamp === u.timestamp;
+                                            const count = useOverride ? (o.count || 0) : (u.count || 0);
+                                            const time = u.time || o?.time;
+                                            const manual = manualFriendUnread.includes(String(friend.id));
+                                            return (
+                                                <div
+                                                    key={`unread-f-${friend.id}`}
+                                                    className={`chat-item friend-row fade-in-up tap-scale ${currentChat?.id === friend.id ? 'active' : ''}`}
+                                                    onMouseEnter={() => setHoverFriendId(friend.id)}
+                                                    onMouseLeave={() => setHoverFriendId(null)}
+                                                    onClick={() => onSelectChat({ ...friend, showInfo: true })}
+                                                    style={{ boxShadow: theme === 'dark' ? 'var(--shadow-card)' : '0 2px 6px rgba(0,0,0,0.06)', borderRadius: '12px', marginBottom: '10px', position: 'relative', width: '90%', marginLeft: 'auto', marginRight: 'auto' }}
+                                                >
+                                                    <div style={{ position: 'relative' }}>
+                                                        <Avatar src={friend.avatar} alt="User" className="avatar" />
+                                                        <div style={{ position: 'absolute', bottom: 0, right: 0, width: '16px', height: '16px', background: onlineUsers.includes(friend.id) ? 'var(--status-online)' : '#ff6b6b', borderRadius: '50%', border: '3px solid var(--bg-panel)' }}></div>
+                                                    </div>
+                                                    <div style={{ flex: 1, marginLeft: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', overflow: 'hidden' }}>
+                                                            <span style={{ fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '6px', color: currentChat?.id === friend.id ? '#fff' : 'var(--text-primary)' }}>
+                                                                {friend.username}
+                                                            </span>
+                                                            <div style={{ fontSize: '0.8rem', color: currentChat?.id === friend.id ? 'rgba(255,255,255,0.8)' : 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '140px' }}>
+                                                                {friend.about || 'Available'}
+                                                            </div>
+                                                        </div>
+                                                        <div className="friend-right" style={{ flexShrink: 0 }}>
+                                                            {time && (
+                                                                <span style={{ fontSize: '0.7rem', color: currentChat?.id === friend.id ? 'rgba(255,255,255,0.8)' : 'var(--text-secondary)', lineHeight: 1 }}>
+                                                                    {time}
+                                                                </span>
+                                                            )}
+                                                            {count > 0 ? (
+                                                                <div className="badge" style={{ background: 'var(--accent-primary)', color: '#fff', minWidth: '20px', height: '20px', padding: '0 6px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '10px', fontSize: '0.75rem', lineHeight: 1 }}>
+                                                                    {count}
+                                                                </div>
+                                                            ) : manual ? (
+                                                                <div className="badge" style={{ background: 'var(--accent-primary)', width: '20px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '10px' }} />
+                                                            ) : null}
+                                                        </div>
+                                                    </div>
+                                                    <button className="friend-arrow" title="More" onClick={(e) => { e.stopPropagation(); const rect = e.currentTarget.getBoundingClientRect(); setOpenFriendMenu({ id: friend.id, top: rect.top, left: rect.right }); }}>
+                                                        <svg width="20" height="20" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+                                                            <polyline points="96 48 176 128 96 208" fill="none" stroke={theme === 'dark' ? '#ffffff' : '#000000'} strokeWidth="16" strokeLinecap="round" strokeLinejoin="round" />
+                                                        </svg>
+                                                    </button>
+                                                </div>
+                                            );
+                                        })}
+                                </div>
+                            )}
+
+                            {channels.filter(ch => { const cid = String(ch.id); const hasAlert = !!channelAlerts?.[cid] && !channelReadOverrides?.[cid]; const hasManual = !!channelManualUnread?.[cid]; return !isArchived('channel', ch.id) && (hasAlert || hasManual); }).length === 0 &&
+                                groups.filter(g => !isArchived('group', g.id) && (((unseenMessages[g.id]?.count || 0) > 0) || manualGroupUnread.includes(String(g.id)))).length === 0 &&
+                                friends.filter(f => !isArchived('friend', f.id)).filter(f => { const rid = [user.id, f.id].sort().join('-'); const u = unseenMessages[rid] || {}; const o = unseenOverrides[rid]; const useOverride = o && u && o.timestamp === u.timestamp; const cnt = useOverride ? (o.count || 0) : (u.count || 0); return (cnt > 0) || manualFriendUnread.includes(String(f.id)); }).length === 0 && (
+                                    <div style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '16px', fontSize: '0.9rem' }}>
+                                        No unread chats.
+                                    </div>
+                                )}
+                        </div>
+                    )}
+                    {/* Pinned Section (only when chip selected) */}
+                    {(topFilter === 'Pinned') && (
+                        <div className="pinned-section" style={{ marginBottom: '24px' }}>
+                            <div className="section-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <span>Pinned</span>
+                            </div>
+
+                            {/* Pinned Channels */}
+                            {channels.filter(ch => (pinnedChannels || []).map(String).includes(String(ch.id)) && !isArchived('channel', ch.id)).length > 0 && (
+                                <div style={{ marginTop: '8px' }}>
+                                    {channels
+                                        .filter(ch => (pinnedChannels || []).map(String).includes(String(ch.id)) && !isArchived('channel', ch.id))
+                                        .map(channel => {
+                                            const isCreator = String(channel.createdBy) === String(user.id);
+                                            return (
+                                                <div key={`pin-ch-${channel.id}`} style={{ display: 'flex', alignItems: 'center', marginBottom: '6px', width: '90%', marginLeft: 'auto', marginRight: 'auto' }}>
+                                                    <div
+                                                        onClick={(e) => { onSelectChat({ ...channel, isChannel: true }); }}
+                                                        onContextMenu={(e) => {
+                                                            if (isCreator) {
+                                                                e.preventDefault();
+                                                                handleChannelContextMenu(e, channel);
+                                                            }
+                                                        }}
+                                                        className={`chat-item channel-item ${currentChat?.id === channel.id ? 'active' : ''}`}
+                                                        style={{ display: 'flex', alignItems: 'center', padding: '8px', borderRadius: '12px', margin: 0, cursor: 'pointer', transition: 'background 0.2s, transform 0.14s ease', position: 'relative', zIndex: 3, boxShadow: 'none', background: 'var(--bg-secondary)', flex: 1, marginRight: '8px' }}
+                                                    >
+                                                        <div style={{ position: 'relative', marginRight: '12px' }}>
+                                                            {channel.photo ? (
+                                                                <Avatar src={channel.photo} alt={channel.name} style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover' }} />
+                                                            ) : (
+                                                                <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'var(--bg-input)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}>
+                                                                    <FiHash size={20} />
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        <div style={{ flex: 1, overflow: 'hidden' }}>
+                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
+                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                                    <span style={{ fontWeight: 600, color: currentChat?.id === channel.id ? '#fff' : 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{channel.name}</span>
+                                                                </div>
+                                                            </div>
+                                                            <div style={{ fontSize: '0.85rem', color: currentChat?.id === channel.id ? 'rgba(255,255,255,0.8)' : 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                                {channel.members} subscribers
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                </div>
+                            )}
+
+                            {/* Pinned Groups */}
+                            {groups.filter(g => (pinnedGroups || []).map(String).includes(String(g.id)) && !g.isAnnouncementGroup && !isArchived('group', g.id)).length > 0 && (
+                                <div style={{ marginTop: '8px' }}>
+                                    {groups
+                                        .filter(g => (pinnedGroups || []).map(String).includes(String(g.id)) && !g.isAnnouncementGroup && !isArchived('group', g.id))
+                                        .map(group => (
+                                            <div key={`pin-g-${group.id}`} className={`chat-item friend-row fade-in-up tap-scale ${currentChat?.id === group.id ? 'active' : ''}`} onClick={() => onSelectChat({ ...group, isGroup: true, showInfo: true })} style={{ boxShadow: theme === 'dark' ? 'var(--shadow-card)' : '0 10px 24px rgba(0,0,0,0.16)', borderRadius: '12px', marginBottom: '10px', position: 'relative', width: '90%', marginLeft: 'auto', marginRight: 'auto' }}>
+                                                <div style={{ position: 'relative', width: '50px', height: '50px', marginRight: '12px' }}>
+                                                    {group.members.slice(0, 3).map((member, i) => (
+                                                        <Avatar key={member.id} src={member.avatar} alt={member.username} style={{ width: '32px', height: '32px', borderRadius: '50%', position: 'absolute', left: `${i * 10}px`, top: '50%', transform: 'translateY(-50%)', border: '1px solid #808080', boxShadow: '0 2px 8px rgba(0,0,0,1)', zIndex: 3 - i, objectFit: 'cover' }} />
+                                                    ))}
+                                                </div>
+                                                <div style={{ flex: 1 }}>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
+                                                            <span style={{ fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap', overflowX: 'auto', overflowY: 'hidden', maxWidth: '100%', color: currentChat?.id === group.id ? '#fff' : 'var(--text-primary)' }}>{group.name}</span>
+                                                        </div>
+                                                    </div>
+                                                    <div style={{ fontSize: '0.8rem', color: currentChat?.id === group.id ? 'rgba(255,255,255,0.8)' : 'var(--text-secondary)', marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                        {group.about || `${group.members.length} members`}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                </div>
+                            )}
+
+                            {/* Pinned Friends */}
+                            {friends.filter(f => (pinnedFriends || []).map(String).includes(String(f.id)) && !isArchived('friend', f.id)).length > 0 && (
+                                <div style={{ marginTop: '8px' }}>
+                                    {friends
+                                        .filter(f => (pinnedFriends || []).map(String).includes(String(f.id)) && !isArchived('friend', f.id))
+                                        .map(friend => (
+                                            <div
+                                                key={`pin-f-${friend.id}`}
+                                                className={`chat-item friend-row fade-in-up tap-scale ${currentChat?.id === friend.id ? 'active' : ''}`}
+                                                onMouseEnter={() => setHoverFriendId(friend.id)}
+                                                onMouseLeave={() => setHoverFriendId(null)}
+                                                onClick={() => onSelectChat({ ...friend, showInfo: true })}
+                                                style={{ boxShadow: theme === 'dark' ? 'var(--shadow-card)' : '0 2px 6px rgba(0,0,0,0.06)', borderRadius: '12px', marginBottom: '10px', position: 'relative', width: '90%', marginLeft: 'auto', marginRight: 'auto' }}
+                                            >
+                                                <div style={{ position: 'relative' }}>
+                                                    <Avatar src={friend.avatar} alt="User" className="avatar" />
+                                                    <div style={{ position: 'absolute', bottom: 0, right: 0, width: '16px', height: '16px', background: onlineUsers.includes(friend.id) ? 'var(--status-online)' : '#ff6b6b', borderRadius: '50%', border: '3px solid var(--bg-panel)' }}></div>
+                                                </div>
+                                                <div style={{ flex: 1, marginLeft: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', overflow: 'hidden' }}>
+                                                        <span style={{ fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '6px', color: 'var(--text-primary)' }}>
+                                                            {friend.username}
+                                                        </span>
+                                                        <div style={{ fontSize: '0.8rem', color: currentChat?.id === friend.id ? 'rgba(255,255,255,0.8)' : 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '140px' }}>
+                                                            {friend.about || 'Available'}
+                                                        </div>
+                                                    </div>
+                                                    <button className="friend-arrow" title="More" onClick={(e) => { e.stopPropagation(); const rect = e.currentTarget.getBoundingClientRect(); setOpenFriendMenu({ id: friend.id, top: rect.top, left: rect.right }); }}>
+                                                        <svg width="20" height="20" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+                                                            <polyline points="96 48 176 128 96 208" fill="none" stroke={theme === 'dark' ? '#ffffff' : '#000000'} strokeWidth="16" strokeLinecap="round" strokeLinejoin="round" />
+                                                        </svg>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                </div>
+                            )}
+
+                            {channels.filter(ch => (pinnedChannels || []).map(String).includes(String(ch.id)) && !isArchived('channel', ch.id)).length === 0 &&
+                                groups.filter(g => (pinnedGroups || []).map(String).includes(String(g.id)) && !g.isAnnouncementGroup && !isArchived('group', g.id)).length === 0 &&
+                                friends.filter(f => (pinnedFriends || []).map(String).includes(String(f.id)) && !isArchived('friend', f.id)).length === 0 && (
+                                    <div style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '16px', fontSize: '0.9rem' }}>
+                                        No pinned chats.
+                                    </div>
+                                )}
+                        </div>
+                    )}
+                    {/* Archives Section (chip-conditional) */}
+                    {(() => {
+                        if (topFilter === 'Favourites' || topFilter === 'Pinned') return false;
+                        const archivedFriends = archivedItems.filter(ai => ai.type === 'friend');
+                        const archivedGroups = archivedItems.filter(ai => ai.type === 'group');
+                        const archivedChannels = archivedItems.filter(ai => ai.type === 'channel');
+                        const archivedCommunities = archivedItems.filter(ai => ai.type === 'community');
+                        const hasUnreadInArchived = (() => {
+                            try {
+                                const friendHas = archivedFriends.some(ai => {
+                                    const rid = [user.id, ai.id].sort().join('-');
+                                    return (unseenMessages[rid]?.count || 0) > 0;
+                                });
+                                const groupHas = archivedGroups.some(ai => (unseenMessages[ai.id]?.count || 0) > 0);
+                                const channelHas = archivedChannels.some(ai => {
+                                    const cid = String(ai.id);
+                                    return !!channelAlerts?.[cid] && !channelReadOverrides?.[cid];
+                                });
+                                const communityHas = archivedCommunities.some(c => {
+                                    const community = communities.find(comm => String(comm.id) === String(c.id));
+                                    if (!community) return false;
+                                    const rawIds = [community.announcementGroupId, ...(community.subGroups || [])].filter(Boolean).map(String);
+                                    const ids = Array.from(new Set(rawIds));
+                                    let total = 0;
+                                    ids.forEach(sid => { const u = unseenMessages[sid] || {}; const cnt = Number(u.count || 0); if (!Number.isNaN(cnt)) total += cnt; });
+                                    return total > 0;
+                                });
+                                return friendHas || groupHas || channelHas || communityHas;
+                            } catch (_) { return false; }
+                        })();
+                        if (topFilter === 'Unread') return hasUnreadInArchived;
+                        if (topFilter === 'Groups') return archivedGroups.length > 0;
+                        if (topFilter === 'Channels') return archivedChannels.length > 0;
+                        if (topFilter === 'Communities') return archivedCommunities.length > 0;
+                        return true; // All and others
+                    })() && (!activeSection || activeSection === 'Archives') && (
+                            <div className="archives-section" style={{ marginBottom: '24px' }}>
+                                <div className="section-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                    <div
+                                        onClick={() => {
+                                            if (activeSection === 'Archives') {
+                                                setActiveSection(null);
+                                            } else {
+                                                setActiveSection('Archives');
+                                                setIsArchivesExpanded(true);
+                                            }
+                                        }}
+                                        style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
+                                    >
+                                        {activeSection === 'Archives' && <FiArrowLeft />}
+                                        <span>Archives</span>
+                                        {!activeSection && (isArchivesExpanded ? <FiChevronUp /> : <FiChevronDown />)}
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <button
+                                            onClick={() => setShowArchiveModal(true)}
+                                            title="Manage Archives"
+                                            style={{
+                                                cursor: 'pointer', width: '28px', height: '28px', borderRadius: '50%',
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: 'none'
+                                            }}
+                                        >
+                                            <FiPlus size={16} />
+                                        </button>
+                                        <button
+                                            onClick={() => setShowUnarchiveModal(true)}
+                                            title="Remove from Archives"
+                                            style={{
+                                                cursor: 'pointer', width: '28px', height: '28px', borderRadius: '50%',
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: 'none'
+                                            }}
+                                        >
+                                            <FiX size={16} />
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Archived Items Stack with smooth collapse/expand */}
+                                <div style={{
+                                    maxHeight: isArchivesExpanded ? '1000px' : '0',
+                                    opacity: isArchivesExpanded ? 1 : 0,
+                                    overflow: isArchivesExpanded ? 'visible' : 'hidden',
+                                    transition: 'max-height 0.4s ease-in-out, opacity 0.3s ease-in-out'
+                                }}>
+                                    {archivedItems.length > 0 ? (
+                                        archivedItems
+                                            .filter(item => {
+                                                // Filter items based on chip
+                                                if (topFilter === 'Groups') {
+                                                    if (item.type !== 'group') return false;
+                                                }
+                                                if (topFilter === 'Channels') {
+                                                    if (item.type !== 'channel') return false;
+                                                }
+                                                if (topFilter === 'Communities') {
+                                                    if (item.type !== 'community') return false;
+                                                }
+                                                if (topFilter === 'Unread') {
+                                                    // Only archived chats with unseen > 0 (friends or groups)
+                                                    if (item.type === 'friend') {
+                                                        const rid = [user.id, item.id].sort().join('-');
+                                                        if (!((unseenMessages[rid]?.count || 0) > 0)) return false;
+                                                    } else if (item.type === 'group') {
+                                                        if (!((unseenMessages[item.id]?.count || 0) > 0)) return false;
+                                                    } else if (item.type === 'channel') {
+                                                        const cid = String(item.id);
+                                                        if (!(!!channelAlerts?.[cid] && !channelReadOverrides?.[cid])) return false;
+                                                    } else if (item.type === 'community') {
+                                                        const community = communities.find(comm => String(comm.id) === String(item.id));
+                                                        if (!community) return false;
+                                                        const rawIds = [community.announcementGroupId, ...(community.subGroups || [])].filter(Boolean).map(String);
+                                                        const ids = Array.from(new Set(rawIds));
+                                                        let total = 0;
+                                                        ids.forEach(sid => { const u = unseenMessages[sid] || {}; const cnt = Number(u.count || 0); if (!Number.isNaN(cnt)) total += cnt; });
+                                                        if (!(total > 0)) return false;
+                                                    } else {
+                                                        return false;
+                                                    }
+                                                }
+                                                // Text search
+                                                if (!search.trim()) return true;
+                                                if (item.type === 'community') {
+                                                    const c = communities.find(c => String(c.id) === String(item.id));
+                                                    return c && c.name.toLowerCase().includes(search.toLowerCase());
+                                                }
+                                                if (item.type === 'channel') {
+                                                    const ch = channels.find(ch => String(ch.id) === String(item.id));
+                                                    return ch && ch.name.toLowerCase().includes(search.toLowerCase());
+                                                }
+                                                const isGroup = item.type === 'group';
+                                                const entity = isGroup ? groups.find(g => String(g.id) === String(item.id)) : friends.find(f => String(f.id) === String(item.id));
+                                                if (!entity) return false;
+                                                return (isGroup ? entity.name : entity.username)?.toLowerCase().includes(search.toLowerCase());
+                                            })
+                                            .map(item => {
+                                                if (item.type === 'community') {
+                                                    const community = communities.find(c => String(c.id) === String(item.id));
+                                                    if (!community) return null;
+                                                    return (
+                                                        <div
+                                                            key={`community-${item.id}`}
+                                                            className="chat-item"
+                                                            onClick={() => toggleCommunityExpansion(community.id)}
+                                                            style={{ boxShadow: theme === 'dark' ? 'var(--shadow-card)' : '0 10px 24px rgba(0,0,0,0.16)', borderRadius: '12px', marginBottom: '10px', cursor: 'pointer' }}
+                                                        >
+                                                            <div style={{ position: 'relative' }}>
+                                                                {(() => {
+                                                                    let baseSrc;
+                                                                    try { baseSrc = localStorage.getItem('community_icon_' + community.id) || community.icon; } catch (_) { baseSrc = community.icon; }
+                                                                    let ver = '';
+                                                                    try { ver = localStorage.getItem('community_icon_ver_' + community.id) || ''; } catch (_) { ver = ''; }
+                                                                    const src = baseSrc ? (ver ? `${baseSrc}${baseSrc.includes('?') ? '&' : '?'}v=${ver}` : baseSrc) : '';
+                                                                    const key = `arch-community-${community.id}-${refreshTick}-${baseSrc?.length || 0}-${ver}`;
+                                                                    return (
+                                                                        <Avatar key={key} src={src} alt={community.name} className="avatar" style={{ borderRadius: '12px' }} />
+                                                                    );
+                                                                })()}
+                                                                {isEditMode && community.admins.includes(user.id) && (
+                                                                    <button
+                                                                        onClick={(e) => { e.stopPropagation(); setDeleteConfirm({ x: e.clientX, y: e.clientY, communityId: community.id }); }}
+                                                                        title="Delete Community"
+                                                                        style={{ position: 'absolute', top: '-8px', left: '-8px', background: '#ffebee', border: '1px solid #ff6b6b', color: '#ff6b6b', borderRadius: '50%', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.3)' }}
+                                                                    >
+                                                                        <FiTrash2 size={12} />
+                                                                    </button>
+                                                                )}
+                                                                {isEditMode && community.admins.includes(user.id) && (
+                                                                    <button
+                                                                        onClick={(e) => { e.stopPropagation(); openCommunityIconPicker(community.id); }}
+                                                                        title="Edit Community Avatar"
+                                                                        style={{ position: 'absolute', top: '-8px', right: '-8px', background: 'var(--accent-light)', border: '1px solid var(--accent-primary)', color: 'var(--accent-primary)', borderRadius: '50%', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.3)' }}
+                                                                    >
+                                                                        <FiImage size={12} />
+                                                                    </button>
+                                                                )}
+                                                                {(() => {
+                                                                    const anyOnline = (community.members || []).some(m => onlineUsers.includes(m));
+                                                                    return (
+                                                                        <div style={{ position: 'absolute', bottom: 0, right: 0, width: '14px', height: '14px', background: anyOnline ? 'var(--status-online)' : '#ff6b6b', borderRadius: '50%', border: '3px solid var(--bg-panel)' }} />
+                                                                    );
+                                                                })()}
+                                                            </div>
+                                                            <div style={{ flex: 1, marginLeft: '12px' }}>
+                                                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0px', alignItems: 'center' }}>
+                                                                    <span className="name-scroll" style={{ fontWeight: 600, whiteSpace: 'nowrap', display: 'block', width: '7ch', overflowX: 'auto', overflowY: 'hidden' }}>{community.name}</span>
+                                                                </div>
+                                                                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '6px', lineHeight: '1' }}>
+                                                                    {community.members.length} members
+                                                                </div>
+                                                            </div>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                                <button
+                                                                    onClick={(e) => { e.stopPropagation(); unarchiveItem('community', item.id); }}
+                                                                    style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}
+                                                                    title="Unarchive"
+                                                                >
+                                                                    <FiX />
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                }
+                                                if (item.type === 'channel') {
+                                                    const channel = channels.find(ch => String(ch.id) === String(item.id));
+                                                    if (!channel) return null;
+                                                    const isCreator = String(channel.createdBy) === String(user.id);
+                                                    const cid = String(channel.id);
+                                                    const hasAlert = !!channelAlerts?.[cid] && !channelReadOverrides?.[cid];
+                                                    const hasManual = !!channelManualUnread?.[cid];
+                                                    return (
+                                                        <div key={`arch-ch-${channel.id}`} style={{ display: 'flex', alignItems: 'center', marginBottom: '6px', width: '90%', marginLeft: 'auto', marginRight: 'auto' }}>
+                                                            <div
+                                                                onClick={(e) => { onSelectChat({ ...channel, isChannel: true }); }}
+                                                                onContextMenu={(e) => {
+                                                                    if (isCreator) {
+                                                                        e.preventDefault();
+                                                                        handleChannelContextMenu(e, channel);
+                                                                    }
+                                                                }}
+                                                                className={`chat-item channel-item ${currentChat?.id === channel.id ? 'active' : ''}`}
+                                                                style={{ display: 'flex', alignItems: 'center', padding: '8px', borderRadius: '12px', margin: 0, cursor: 'pointer', transition: 'background 0.2s, transform 0.14s ease', position: 'relative', zIndex: 3, boxShadow: 'none', background: 'var(--bg-secondary)', flex: 1, marginRight: '8px' }}
+                                                            >
+                                                                <div style={{ position: 'relative', marginRight: '12px' }}>
+                                                                    {channel.photo ? (
+                                                                        <Avatar src={channel.photo} alt={channel.name} style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover' }} />
+                                                                    ) : (
+                                                                        <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'var(--bg-input)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}>
+                                                                            <FiHash size={20} />
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                                <div style={{ flex: 1, overflow: 'hidden' }}>
+                                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
+                                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                                            <span style={{ fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                                                {channel.name}
+                                                                                {(() => {
+                                                                                    try {
+                                                                                        const isMuted = (localStorage.getItem(`mute_channel_${channel.id}`) === 'true');
+                                                                                        return isMuted ? <FiBellOff size={14} color="var(--text-secondary)" title="Muted" /> : null;
+                                                                                    } catch (_) { return null; }
+                                                                                })()}
+                                                                            </span>
+                                                                        </div>
+                                                                        {(hasAlert || hasManual) && (
+                                                                            <div className="badge" style={{ background: 'var(--accent-primary)', color: '#fff', borderRadius: '12px', padding: '2px 8px', fontSize: '0.7rem', fontWeight: 600 }}>
+                                                                                {hasAlert ? '!' : ''}
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                    <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                                        {channel.members} subscribers
+                                                                    </div>
+                                                                </div>
+                                                                <button
+                                                                    onClick={(e) => { e.stopPropagation(); unarchiveItem('channel', item.id); }}
+                                                                    style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}
+                                                                    title="Unarchive"
+                                                                >
+                                                                    <FiX />
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                }
+                                                const isGroup = item.type === 'group';
+                                                const entity = isGroup
+                                                    ? groups.find(g => String(g.id) === String(item.id))
+                                                    : friends.find(f => String(f.id) === String(item.id));
+                                                if (!entity) return null;
+                                                return (
+                                                    <div
+                                                        key={`${item.type}-${item.id}`}
+                                                        className={`chat-item fade-in-up tap-scale ${currentChat?.id === entity.id ? 'active' : ''}`}
+                                                        onClick={() => onSelectChat({ ...entity, isGroup: !!isGroup, showInfo: true })}
+                                                        style={{ boxShadow: theme === 'dark' ? 'var(--shadow-card)' : '0 10px 24px rgba(0,0,0,0.16)', borderRadius: '12px', marginBottom: '10px' }}
+                                                    >
+                                                        <div style={{ position: 'relative' }}>
+                                                            {isGroup ? (
+                                                                <div style={{ position: 'relative', width: '50px', height: '50px', marginRight: '12px' }}>
+                                                                    {entity.members?.slice(0, 3).map((member, i) => (
+                                                                        <Avatar key={member.id} src={member.avatar} alt={member.username} style={{ width: '28px', height: '28px', borderRadius: '50%', position: 'absolute', left: `${i * 10}px`, top: '50%', transform: 'translateY(-50%)', border: '1px solid #808080', boxShadow: '0 2px 8px rgba(0,0,0,1)', zIndex: 3 - i, objectFit: 'cover' }} />
+                                                                    ))}
+                                                                    {(() => {
+                                                                        const anyOnline = (entity.members || []).some(m => onlineUsers.includes(m));
+                                                                        return (
+                                                                            <div style={{ position: 'absolute', bottom: '0px', right: '0px', width: '16px', height: '16px', background: anyOnline ? 'var(--status-online)' : '#ff6b6b', borderRadius: '50%', border: '3px solid var(--bg-panel)' }} />
+                                                                        );
+                                                                    })()}
+                                                                </div>
+                                                            ) : (
+                                                                <div style={{ position: 'relative' }}>
+                                                                    <Avatar src={entity.avatar} alt={entity.username} className="avatar" />
+                                                                    <div style={{ position: 'absolute', bottom: 0, right: 0, width: '16px', height: '16px', background: onlineUsers.includes(entity.id) ? 'var(--status-online)' : '#ff6b6b', borderRadius: '50%', border: '3px solid var(--bg-panel)' }} />
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        <div style={{ flex: 1, marginLeft: '12px' }}>
+                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                                <div style={{ overflow: 'hidden', flex: 1 }}>
+                                                                    <div style={{ fontWeight: 600, marginBottom: '4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                                        {isGroup ? entity.name : entity.username}
+                                                                        {(() => {
+                                                                            try {
+                                                                                const isMuted = isGroup
+                                                                                    ? (localStorage.getItem(`mute_group_${entity.id}`) === 'true')
+                                                                                    : (localStorage.getItem(muteKey(entity.id)) === 'true');
+                                                                                return isMuted ? <FiBellOff size={14} color="var(--text-secondary)" title="Muted" /> : null;
+                                                                            } catch (_) { return null; }
+                                                                        })()}
+                                                                    </div>
+                                                                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                                        {isGroup ? `${entity.members?.length || 0} members` : (entity.about || 'Available')}
+                                                                    </div>
+                                                                </div>
+                                                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', minWidth: '50px', marginLeft: '8px' }}>
+                                                                    {(() => {
+                                                                        let time, count;
+                                                                        let manual = false;
+                                                                        let useOverride = false;
+                                                                        if (isGroup) {
+                                                                            const u = unseenMessages[entity.id] || {};
+                                                                            const o = unseenOverrides[entity.id];
+                                                                            useOverride = o && u && o.timestamp === u.timestamp;
+                                                                            count = useOverride ? (o.count || 0) : (u.count || 0);
+                                                                            time = u.time || o?.time;
+                                                                            manual = manualGroupUnread.includes(String(entity.id));
+                                                                        } else {
+                                                                            // For DMs, use composite room ID
+                                                                            const roomId = [user.id, entity.id].sort().join('-');
+                                                                            const u = unseenMessages[roomId] || {};
+                                                                            const o = unseenOverrides[roomId];
+                                                                            useOverride = o && u && o.timestamp === u.timestamp;
+                                                                            count = useOverride ? (o.count || 0) : (u.count || 0);
+                                                                            time = u.time || o?.time;
+                                                                            manual = manualFriendUnread.includes(String(entity.id));
+                                                                        }
+
+                                                                        return (
+                                                                            <div className="friend-right" style={{ flexShrink: 0 }}>
+                                                                                {time && (
+                                                                                    <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', lineHeight: 1 }}>
+                                                                                        {time}
+                                                                                    </span>
+                                                                                )}
+                                                                                {count > 0 ? (
+                                                                                    <div
+                                                                                        className="badge"
+                                                                                        style={{
+                                                                                            background: 'var(--accent-primary)',
+                                                                                            color: '#fff',
+                                                                                            width: 18,
+                                                                                            height: 18,
+                                                                                            minWidth: 18,
+                                                                                            borderRadius: '50%',
+                                                                                            padding: 0,
+                                                                                            display: 'flex',
+                                                                                            alignItems: 'center',
+                                                                                            justifyContent: 'center',
+                                                                                            fontSize: '0.55rem',
+                                                                                            lineHeight: 1
+                                                                                        }}
+                                                                                    >
+                                                                                        {count}
+                                                                                    </div>
+                                                                                ) : manual ? (
+                                                                                    <div
+                                                                                        className="badge"
+                                                                                        style={{
+                                                                                            background: 'var(--accent-primary)',
+                                                                                            width: 18,
+                                                                                            height: 18,
+                                                                                            minWidth: 18,
+                                                                                            borderRadius: '50%',
+                                                                                            padding: 0,
+                                                                                            display: 'flex',
+                                                                                            alignItems: 'center',
+                                                                                            justifyContent: 'center'
+                                                                                        }}
+                                                                                    />
+                                                                                ) : null}
+                                                                            </div>
+                                                                        );
+                                                                    })()}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <button className="friend-arrow" title="More" onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            const rect = e.currentTarget.getBoundingClientRect();
+                                                            if (isGroup) {
+                                                                setOpenGroupMenu({ id: entity.id, top: rect.top, left: rect.right });
+                                                            } else {
+                                                                setOpenFriendMenu({ id: entity.id, top: rect.top, left: rect.right });
+                                                            }
+                                                        }}>
+                                                            <svg width="20" height="20" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+                                                                <polyline points="96 48 176 128 96 208" fill="none" stroke={theme === 'dark' ? '#ffffff' : '#000000'} strokeWidth="16" strokeLinecap="round" strokeLinejoin="round" />
+                                                            </svg>
+                                                        </button>
+                                                    </div>
+                                                );
+                                            })
+                                    ) : (
+                                        search.trim() === '' ? (
+                                            <div style={{ padding: '20px', fontSize: '0.9rem', color: 'var(--text-secondary)', textAlign: 'center' }}>No archived chats</div>
+                                        ) : null
+                                    )}
+                                </div>
+                            </div>
+                        )
+                    }
+                    {/* Communities Section (under All or Communities chip) */}
+                    {(topFilter === 'All' || topFilter === 'Communities') && communities.filter(c => !isArchived('community', c.id) && (search.trim() === '' || c.name.toLowerCase().includes(search.toLowerCase()))).length > 0 && (!activeSection || activeSection === 'Communities') && (
+                        <div className="communities-section" style={{ marginBottom: '32px' }}>
+                            <div className="section-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <div
+                                    onClick={() => {
+                                        if (activeSection === 'Communities') {
+                                            setActiveSection(null);
+                                        } else {
+                                            setActiveSection('Communities');
+                                            setIsCommunitiesSectionExpanded(true);
+                                        }
+                                    }}
+                                    style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
+                                >
+                                    {activeSection === 'Communities' && <FiArrowLeft />}
+                                    <span>Communities</span>
+                                    {!activeSection && (isCommunitiesSectionExpanded ? <FiChevronUp /> : <FiChevronDown />)}
+                                </div>
+                            </div>
+                            <div style={{
+                                maxHeight: isCommunitiesSectionExpanded ? '2000px' : '0',
+                                opacity: isCommunitiesSectionExpanded ? 1 : 0,
+                                overflow: isCommunitiesSectionExpanded ? 'visible' : 'hidden',
+                                transition: 'max-height 0.4s ease-in-out, opacity 0.3s ease-in-out'
+                            }}>
+                                {communities
+                                    .filter(c => !isArchived('community', c.id) && (search.trim() === '' || c.name.toLowerCase().includes(search.toLowerCase())))
+                                    .map(community => (
+                                        <div key={community.id} style={{
+                                            marginBottom: '12px',
+                                            backgroundColor: expandedCommunities.includes(community.id) ? 'var(--bg-secondary)' : 'transparent',
+                                            borderRadius: '16px',
+                                            transition: 'all 0.3s ease',
+                                            overflow: 'visible',
+                                            width: '90%',
+                                            marginLeft: 'auto',
+                                            marginRight: 'auto'
+                                        }}>
+                                            <div
+                                                className={`chat-item ${currentChat?.id === community.id ? 'active' : ''}`}
+                                                onClick={() => { toggleCommunityExpansion(community.id); }}
+                                                style={{
+                                                    width: '100%', marginLeft: 'auto', marginRight: 'auto',
+                                                    cursor: 'pointer', position: 'relative', zIndex: 2,
+                                                    transition: 'all 0.3s ease', boxShadow: theme === 'dark' ? 'var(--shadow-card)' : '0 10px 24px rgba(0,0,0,0.16)', borderRadius: '12px'
+                                                }}
+                                            >
+                                                <div style={{ position: 'relative' }}>
+                                                    {(() => {
+                                                        let baseSrc;
+                                                        try { baseSrc = localStorage.getItem('community_icon_' + community.id) || community.icon; } catch (_) { baseSrc = community.icon; }
+                                                        let ver = '';
+                                                        try { ver = localStorage.getItem('community_icon_ver_' + community.id) || ''; } catch (_) { ver = ''; }
+                                                        const src = baseSrc ? (ver ? `${baseSrc}${baseSrc.includes('?') ? '&' : '?'}v=${ver}` : baseSrc) : '';
+                                                        const key = `community-${community.id}-${refreshTick}-${baseSrc?.length || 0}-${ver}`;
+                                                        return (
+                                                            <Avatar key={key} src={src} alt={community.name} className="avatar" style={{ borderRadius: '12px', filter: isEditMode ? 'brightness(0.6)' : 'none' }} />
+                                                        );
+                                                    })()}
+                                                    {(() => {
+                                                        const anyOnline = (community.members || []).some(m => onlineUsers.includes(m));
+                                                        return (
+                                                            <div style={{ position: 'absolute', bottom: 0, right: 0, width: '16px', height: '16px', background: anyOnline ? 'var(--status-online)' : '#ff6b6b', borderRadius: '50%', border: '3px solid var(--bg-panel)' }} />
+                                                        );
+                                                    })()}
+                                                    {isEditMode && community.admins.includes(user.id) && (
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); setDeleteConfirm({ x: e.clientX, y: e.clientY, communityId: community.id }); }}
+                                                            title="Delete Community"
+                                                            style={{ position: 'absolute', top: '-8px', left: '-8px', background: '#ffebee', border: '1px solid #ff6b6b', color: '#ff6b6b', borderRadius: '50%', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.3)' }}
+                                                        >
+                                                            <FiTrash2 size={14} />
+                                                        </button>
+                                                    )}
+                                                    {isEditMode && community.admins.includes(user.id) && (
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); openCommunityIconPicker(community.id); }}
+                                                            title="Edit Community Avatar"
+                                                            style={{ position: 'absolute', top: '-8px', right: '-8px', background: 'var(--accent-light)', border: '1px solid var(--accent-primary)', color: 'var(--accent-primary)', borderRadius: '50%', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.3)' }}
+                                                        >
+                                                            <FiImage size={14} />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                                <div style={{ flex: 1, marginLeft: '12px' }}>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0px', alignItems: 'center' }}>
+                                                        <span className="name-scroll" style={{ fontWeight: 600, whiteSpace: 'nowrap', display: 'block', width: '7ch', overflowX: 'auto', overflowY: 'hidden', lineHeight: '1', color: currentChat?.id === community.id ? '#fff' : 'var(--text-primary)' }}>{community.name}</span>
+                                                    </div>
+                                                    <div style={{ fontSize: '0.8rem', color: currentChat?.id === community.id ? 'rgba(255,255,255,0.8)' : 'var(--text-secondary)', marginTop: '6px', lineHeight: '1' }}>
+                                                        {community.members.length} members
+                                                    </div>
+                                                </div>
+                                                <div style={{ color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '4px', marginLeft: 'auto' }}>
+                                                    {(() => {
+                                                        try {
+                                                            const rawIds = [community.announcementGroupId, ...(community.subGroups || [])].filter(Boolean);
+                                                            const ids = Array.from(new Set(rawIds.map(x => String(x))));
+                                                            let total = 0;
+                                                            let time = '';
+                                                            ids.forEach(sid => {
+                                                                const u = unseenMessages[sid] || {};
+                                                                const cnt = Number(u.count || 0);
+                                                                if (!Number.isNaN(cnt)) total += cnt;
+                                                                if (!time && u.time) time = u.time;
+                                                            });
+                                                            if (total > 0) {
+                                                                return (
+                                                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '4px', minWidth: '28px' }}>
+                                                                        {time && (
+                                                                            <span style={{ fontSize: '0.7rem', color: currentChat?.id === community.id ? 'rgba(255,255,255,0.8)' : 'var(--text-secondary)', lineHeight: 1, textAlign: 'center', whiteSpace: 'nowrap' }}>{time}</span>
+                                                                        )}
+                                                                        <div className="badge" style={{ background: 'var(--accent-primary)', color: '#fff', minWidth: '20px', height: '20px', padding: '0 6px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '10px', fontSize: '0.75rem', lineHeight: 1 }}>
+                                                                            {total}
+                                                                        </div>
+                                                                    </div>
+                                                                );
+                                                            }
+                                                        } catch (_) { /* noop */ }
+                                                        return null;
+                                                    })()}
+                                                    {/* Quick Add Group Action for Admins - aligned to the right */}
+                                                    {community.admins.includes(user.id) && (
+                                                        <div
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setSelectedCommunityId(community.id);
+                                                                setShowAddGroupModal(true);
+                                                                if (!expandedCommunities.includes(community.id)) {
+                                                                    setExpandedCommunities(prev => [...prev, community.id]);
+                                                                }
+                                                            }}
+                                                            style={{
+                                                                padding: '4px',
+                                                                borderRadius: '50%',
+                                                                cursor: 'pointer',
+                                                                color: 'var(--accent-primary)',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'center'
+                                                            }}
+                                                            title="Add Group to Community"
+                                                        >
+                                                            <FiPlus size={18} />
+                                                        </div>
+                                                    )}
+                                                    {/* community delete bin moved onto avatar in edit mode */}
+                                                    <div style={{
+                                                        width: '26px',
+                                                        height: '26px',
+                                                        borderRadius: '50%',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                                                        transform: expandedCommunities.includes(community.id) ? 'rotate(180deg)' : 'rotate(0deg)',
+                                                        background: theme === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
+                                                        marginLeft: '4px'
+                                                    }}>
+                                                        <FiChevronDown size={16} />
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Sub-groups Stack (smooth expand) */}
+                                            <div style={{
+                                                position: 'relative',
+                                                zIndex: 1,
+                                                overflow: expandedCommunities.includes(community.id) ? 'visible' : 'hidden',
+                                                transition: 'max-height 0.4s ease-in-out, opacity 0.3s ease-in-out',
+                                                maxHeight: expandedCommunities.includes(community.id) ? '1200px' : '0',
+                                                opacity: expandedCommunities.includes(community.id) ? 1 : 0,
+                                                width: '90%',
+                                                marginLeft: 'auto',
+                                                marginRight: 'auto',
+                                                background: 'transparent',
+                                                border: 'none',
+                                                borderRadius: '0',
+                                                boxShadow: 'none'
+                                            }}>
+                                                <div style={{
+                                                    padding: 0,
+                                                    display: 'flex',
+                                                    flexDirection: 'column',
+                                                    alignItems: 'center',
+                                                    background: 'transparent'
+                                                }}>
+                                                    <div style={{ width: '100%', paddingBottom: 0, borderRadius: '12px', padding: 0 }}>
+                                                        <div
+                                                            className={`chat-item ${currentChat?.id === community.announcementGroupId ? 'active' : ''}`}
+                                                            onClick={() => {
+                                                                const group = groups.find(g => g.id === community.announcementGroupId);
+                                                                if (group) {
+                                                                    onSelectChat({ ...group, isGroup: true, showInfo: true });
+                                                                } else {
+                                                                    try { socket.emit('get_communities', user?.id); } catch (_) { }
+                                                                    try { socket.emit('get_groups', user?.id); } catch (_) { }
+                                                                    // Optimistically open a placeholder so user navigates immediately
+                                                                    onSelectChat({
+                                                                        id: community.announcementGroupId,
+                                                                        name: 'Announcements',
+                                                                        isGroup: true,
+                                                                        isAnnouncementGroup: true,
+                                                                        communityId: community.id,
+                                                                        showInfo: true
+                                                                    });
+                                                                }
+                                                            }}
+                                                            style={{
+                                                                padding: '8px',
+                                                                borderRadius: '8px',
+                                                                marginBottom: '8px',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'space-between',
+                                                                boxShadow: (unseenMessages[community.announcementGroupId]?.count || 0) > 0 ? (theme === 'dark' ? '0 2px 8px rgba(0,0,0,0.2)' : '0 1px 3px rgba(0,0,0,0.1)') : 'none',
+                                                                width: '80%',
+                                                                background: currentChat?.id === community.announcementGroupId ? 'var(--accent-primary)' : (theme === 'dark' ? 'rgba(255, 255, 255, 0.04)' : '#fff'),
+                                                                color: currentChat?.id === community.announcementGroupId ? '#fff' : 'inherit'
+                                                            }}
+                                                        >
+                                                            <div style={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: 0 }}>
+                                                                <div style={{ position: 'relative', width: '28px', height: '28px', borderRadius: '8px', background: currentChat?.id === community.announcementGroupId ? '#fff' : 'var(--bg-input)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: currentChat?.id === community.announcementGroupId ? 'var(--accent-primary)' : (theme === 'dark' ? 'var(--text-secondary)' : 'var(--text-primary)'), boxShadow: theme === 'dark' ? '0 2px 8px rgba(0,0,0,0.7)' : '0 1px 3px rgba(0,0,0,0.12)' }}>
+                                                                    <FiMoreVertical size={14} />
+                                                                </div>
+                                                                <div style={{ marginLeft: '10px', fontSize: '0.9rem', fontWeight: 500 }}>Announcements</div>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Other Sub-groups (filtered) */}
+                                                        {community.subGroups
+                                                            .map(groupId => groups.find(g => g.id === groupId))
+                                                            .filter(group => {
+                                                                if (!group) return false;
+                                                                const matchesOnline = !showOnlineOnly || (group.members || []).some(m => onlineUsers.includes(m.id || m));
+                                                                const matchesUnread = !showUnreadOnly || ((unseenMessages[group.id]?.count || 0) > 0) || manualGroupUnread.includes(String(group.id));
+                                                                return matchesOnline && matchesUnread;
+                                                            })
+                                                            .map(group => (
+                                                                <div
+                                                                    key={group.id}
+                                                                    className={`chat-item fade-in-up tap-scale ${currentChat?.id === group.id && currentChat?.sourceCommunityId === community.id ? 'active' : ''}`}
+                                                                    onClick={() => onSelectChat({ ...group, isGroup: true, showInfo: true, sourceCommunityId: community.id })}
+                                                                    style={{
+                                                                        padding: '8px',
+                                                                        borderRadius: '8px',
+                                                                        marginBottom: '8px',
+                                                                        display: 'flex',
+                                                                        alignItems: 'center',
+                                                                        justifyContent: 'space-between',
+                                                                        boxShadow: theme === 'dark' ? '0 2px 8px rgba(0,0,0,0.2)' : '0 1px 3px rgba(0,0,0,0.1)',
+                                                                        width: '80%',
+                                                                        background: (currentChat?.id === group.id && currentChat?.sourceCommunityId === community.id) ? 'var(--accent-primary)' : (theme === 'dark' ? 'rgba(255, 255, 255, 0.04)' : '#fff'),
+                                                                        color: (currentChat?.id === group.id && currentChat?.sourceCommunityId === community.id) ? '#fff' : 'inherit'
+                                                                    }}
+                                                                >
+                                                                    <div style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
+                                                                        <div style={{ position: 'relative', width: '28px', height: '28px', borderRadius: '8px', background: (currentChat?.id === group.id && currentChat?.sourceCommunityId === community.id) ? '#fff' : 'var(--bg-input)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: (currentChat?.id === group.id && currentChat?.sourceCommunityId === community.id) ? 'var(--accent-primary)' : (theme === 'dark' ? 'var(--text-secondary)' : 'var(--text-primary)'), boxShadow: theme === 'dark' ? '0 2px 8px rgba(0,0,0,0.7)' : '0 1px 3px rgba(0,0,0,0.12)' }}>
+                                                                            <FiHash size={14} />
+                                                                        </div>
+                                                                        <div style={{ marginLeft: '10px', fontSize: '0.9rem', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{group.name}</div>
+                                                                    </div>
+                                                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px', alignSelf: 'stretch', justifyContent: 'center' }}>
+                                                                        {unseenMessages[group.id]?.time && (
+                                                                            <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
+                                                                                {unseenMessages[group.id].time}
+                                                                            </div>
+                                                                        )}
+                                                                        {unseenMessages[group.id]?.count > 0 && (
+                                                                            <div style={{ background: 'var(--accent-primary)', color: '#fff', borderRadius: '12px', padding: '2px 8px', fontSize: '0.7rem', fontWeight: 600 }}>
+                                                                                {unseenMessages[group.id].count}
+                                                                            </div>
+                                                                        )}
+                                                                        {manualGroupUnread.includes(String(group.id)) && !(unseenMessages[group.id]?.count > 0) && (
+                                                                            <div className="badge" style={{ background: 'var(--accent-primary)', width: '20px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '10px' }} />
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Friend Requests (hidden in Favourites view) */}
+                    {topFilter !== 'Favourites' && requests.length > 0 && (
+                        <div className="requests-section" style={{ marginBottom: '28px' }}>
+                            <div className="section-title">Requests</div>
+                            {requests.map(req => (
+                                <div key={req.id} className="chat-item" style={{ cursor: 'default', boxShadow: theme === 'dark' ? 'var(--shadow-card)' : '0 4px 12px rgba(0,0,0,0.06)', borderRadius: '12px' }}>
+                                    <Avatar src={req.fromAvatar} alt="User" className="avatar-sm" />
+                                    <div style={{ flex: 1, marginLeft: '10px', fontWeight: 600 }}>{req.fromUsername}</div>
+                                    <div style={{ display: 'flex', gap: '8px' }}>
+                                        <button onClick={() => acceptRequest(req.id)} style={{ background: 'var(--status-online)', border: 'none', borderRadius: '50%', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', cursor: 'pointer' }}><FiCheck /></button>
+                                        <button style={{ background: '#ff6b6b', border: 'none', borderRadius: '50%', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', cursor: 'pointer' }}><FiX /></button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    {/* Favourites List (only when bubble selected) */}
+                    {(topFilter === 'Favourites') && (
+                        <div className="all-chats" style={{ marginTop: '16px', marginBottom: '24px' }}>
+                            <div className="section-title">Favourites</div>
+                            {friends
+                                .filter(f => favourites.includes(String(f.id)))
+                                .filter(f => !showOnlineOnly || onlineUsers.includes(f.id))
+                                .filter(f => {
+                                    if (!showUnreadOnly) return true;
+                                    const roomId = [user.id, f.id].sort().join('-');
+                                    const u = unseenMessages[roomId] || {};
+                                    const o = unseenOverrides[roomId];
+                                    const useOverride = o && u && o.timestamp === u.timestamp;
+                                    const cnt = useOverride ? (o.count || 0) : (u.count || 0);
+                                    return (cnt > 0) || manualFriendUnread.includes(String(f.id));
+                                })
+                                .filter(f => { const q = search.trim().toLowerCase(); if (!q) return true; return f.username.toLowerCase().includes(q) || (f.about || '').toLowerCase().includes(q); })
+                                .sort((a, b) => {
+                                    const ap = pinnedFriends.includes(String(a.id)) ? -1 : 0;
+                                    const bp = pinnedFriends.includes(String(b.id)) ? -1 : 0;
+                                    return ap - bp || a.username.localeCompare(b.username);
+                                })
+                                .map(friend => {
+                                    const roomId = [user.id, friend.id].sort().join('-');
+                                    const u = unseenMessages[roomId] || {};
+                                    const o = unseenOverrides[roomId];
+                                    const useOverride = o && u && o.timestamp === u.timestamp;
+                                    const count = useOverride ? (o.count || 0) : (u.count || 0);
+                                    const time = u.time || o?.time;
+                                    const manual = manualFriendUnread.includes(String(friend.id));
+                                    const isMuted = (localStorage.getItem(muteKey(friend.id)) === 'true');
+                                    const isBlocked = (localStorage.getItem(blockKey(friend.id)) === 'true');
+                                    const isPinned = pinnedFriends.includes(String(friend.id));
+                                    return (
+                                        <div
+                                            key={`fav-${friend.id}`}
+                                            className={`chat-item friend-row fade-in-up tap-scale ${currentChat?.id === friend.id ? 'active' : ''}`}
+                                            onMouseEnter={() => setHoverFriendId(friend.id)}
+                                            onMouseLeave={() => setHoverFriendId(null)}
+                                            onClick={() => onSelectChat({ ...friend, showInfo: true })}
+                                            style={{ boxShadow: theme === 'dark' ? 'var(--shadow-card)' : '0 2px 6px rgba(0,0,0,0.06)', borderRadius: '12px', marginBottom: '10px', position: 'relative' }}
+                                        >
+                                            <div style={{ position: 'relative' }}>
+                                                <Avatar src={friend.avatar} alt="User" className="avatar" style={{ filter: isEditMode ? 'brightness(0.6)' : 'none' }} />
+                                                <div style={{ position: 'absolute', bottom: 0, right: 0, width: '16px', height: '16px', background: onlineUsers.includes(friend.id) ? 'var(--status-online)' : '#ff6b6b', borderRadius: '50%', border: '3px solid var(--bg-panel)' }}></div>
+                                            </div>
+                                            <div style={{ flex: 1, marginLeft: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', overflow: 'hidden' }}>
+                                                    <span style={{ fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '6px', color: currentChat?.id === friend.id ? '#fff' : 'var(--text-primary)' }}>
+                                                        {friend.username}
+                                                        {isMuted ? <FiBellOff size={14} color={currentChat?.id === friend.id ? 'rgba(255,255,255,0.8)' : 'var(--text-secondary)'} title="Muted" /> : null}
+                                                    </span>
+                                                    <div style={{ fontSize: '0.8rem', color: currentChat?.id === friend.id ? 'rgba(255,255,255,0.8)' : 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '140px' }}>
+                                                        {friend.about || (isBlocked ? 'Blocked' : 'Available')}
+                                                    </div>
+                                                </div>
+                                                <div className="friend-right" style={{ flexShrink: 0 }}>
+                                                    {time && (
+                                                        <span style={{ fontSize: '0.7rem', color: currentChat?.id === friend.id ? 'rgba(255,255,255,0.8)' : 'var(--text-secondary)', lineHeight: 1 }}>
+                                                            {time}
+                                                        </span>
+                                                    )}
+                                                    {count > 0 ? (
+                                                        <div className="badge" style={{ background: 'var(--accent-primary)', color: '#fff', minWidth: '20px', height: '20px', padding: '0 6px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '10px', fontSize: '0.75rem', lineHeight: 1 }}>
+                                                            {count}
+                                                        </div>
+                                                    ) : manual ? (
+                                                        <div className="badge" style={{ background: 'var(--accent-primary)', width: '20px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '10px' }} />
+                                                    ) : null}
+                                                </div>
+                                            </div>
+                                            <button className="friend-arrow" title="More" onClick={(e) => { e.stopPropagation(); const rect = e.currentTarget.getBoundingClientRect(); setOpenFriendMenu({ id: friend.id, top: rect.top, left: rect.right }); }}>
+                                                <svg width="20" height="20" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+                                                    <polyline points="96 48 176 128 96 208" fill="none" stroke={theme === 'dark' ? '#ffffff' : '#000000'} strokeWidth="16" strokeLinecap="round" strokeLinejoin="round" />
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    );
+                                })}
+                        </div>
+                    )}
+
+                    {/* Friends List */}
+                    {(['All', 'Friends'].includes(topFilter)) && (!activeSection || activeSection === 'Friends') && (
+                        <div className="all-chats" style={{ marginBottom: '32px' }}>
+                            <div
+                                className="section-title"
+                                onClick={() => {
+                                    if (activeSection === 'Friends') {
+                                        setActiveSection(null);
+                                    } else {
+                                        setActiveSection('Friends');
+                                    }
+                                }}
+                                style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
+                            >
+                                {activeSection === 'Friends' && <FiArrowLeft />}
+                                Friends
+                            </div>
+                            {friends
+                                .filter(f => !isArchived('friend', f.id))
+                                .filter(f => !showOnlineOnly || onlineUsers.includes(f.id))
+                                .filter(f => !showUnreadOnly || ((unseenMessages[[user.id, f.id].sort().join('-')]?.count || unseenOverrides[[user.id, f.id].sort().join('-')]?.count || 0) > 0 || manualFriendUnread.includes(String(f.id))))
+                                .filter(f => {
+                                    const q = search.trim().toLowerCase();
+                                    if (!q) return true;
+                                    return f.username.toLowerCase().includes(q) || (f.about || '').toLowerCase().includes(q);
+                                })
+                                .sort((a, b) => {
+                                    // Prioritize incoming caller
+                                    if (callState?.type === 'incoming' && callState?.caller) {
+                                        if (String(a.id) === String(callState.caller.id)) return -1;
+                                        if (String(b.id) === String(callState.caller.id)) return 1;
+                                    }
+                                    const ap = pinnedFriends.includes(String(a.id)) ? -1 : 0;
+                                    const bp = pinnedFriends.includes(String(b.id)) ? -1 : 0;
+                                    return ap - bp || a.username.localeCompare(b.username);
+                                })
+                                .map(friend => (
+                                    <motion.div
+                                        layout
+                                        key={friend.id}
+                                        className={`chat-item friend-row fade-in-up tap-scale ${currentChat?.id === friend.id ? 'active' : ''}`}
+                                        onMouseEnter={() => setHoverFriendId(friend.id)}
+                                        onMouseLeave={() => setHoverFriendId(null)}
+                                        onClick={() => onSelectChat({ ...friend, showInfo: true })}
+                                        style={{
+                                            boxShadow: (callState?.type === 'incoming' && String(friend.id) === String(callState?.caller?.id))
+                                                ? (theme === 'dark' ? '0 0 15px rgba(var(--accent-rgb), 0.6)' : '0 0 15px rgba(var(--accent-rgb), 0.4)')
+                                                : (theme === 'dark' ? 'var(--shadow-card)' : '0 2px 6px rgba(0,0,0,0.06)'),
+                                            borderRadius: '12px',
+                                            marginBottom: '10px',
+                                            position: 'relative',
+                                            border: (callState?.type === 'incoming' && String(friend.id) === String(callState?.caller?.id))
+                                                ? '1px solid var(--accent-primary)'
+                                                : '1px solid transparent'
+                                        }}
+                                        animate={
+                                            (callState?.type === 'incoming' && String(friend.id) === String(callState?.caller?.id))
+                                                ? { scale: [1, 1.05, 1], y: [0, -2, 0] }
+                                                : { scale: 1, y: 0 }
+                                        }
+                                        transition={
+                                            (callState?.type === 'incoming' && String(friend.id) === String(callState?.caller?.id))
+                                                ? { repeat: Infinity, duration: 1.5, ease: "easeInOut" }
+                                                : {}
+                                        }
+                                    >
+                                        <div style={{ position: 'relative' }}>
+                                            <Avatar src={friend.avatar} alt="User" className="avatar" style={{ filter: isEditMode ? 'brightness(0.6)' : 'none' }} />
+                                            <div style={{ position: 'absolute', bottom: 0, right: 0, width: '16px', height: '16px', background: onlineUsers.includes(friend.id) ? 'var(--status-online)' : '#ff6b6b', borderRadius: '50%', border: '3px solid var(--bg-panel)' }}></div>
+                                            {isEditMode && (
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); archiveItem('friend', friend.id); }}
+                                                    title="Remove chat"
+                                                    style={{ position: 'absolute', top: '-8px', left: '-8px', background: '#ffebee', border: '1px solid #ff6b6b', color: '#ff6b6b', borderRadius: '50%', width: '26px', height: '26px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.3)' }}
+                                                >
+                                                    <FiTrash2 size={12} />
+                                                </button>
+                                            )}
+                                        </div>
+                                        <div style={{ flex: 1, marginLeft: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', overflow: 'hidden' }}>
+                                                <span style={{ fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '6px', color: currentChat?.id === friend.id ? '#fff' : 'var(--text-primary)' }}>
+                                                    {friend.username}
+                                                    {(() => { try { return (localStorage.getItem(muteKey(friend.id)) === 'true') ? <FiBellOff size={14} color={currentChat?.id === friend.id ? 'rgba(255,255,255,0.8)' : 'var(--text-secondary)'} title="Muted" /> : null; } catch (_) { return null; } })()}
+                                                </span>
+                                                <div style={{ fontSize: '0.8rem', color: currentChat?.id === friend.id ? 'rgba(255,255,255,0.8)' : 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '140px' }}>
+                                                    {friend.about || 'Available'}
+                                                </div>
+                                            </div>
+                                            {(() => {
+                                                const roomId = [user.id, friend.id].sort().join('-');
+                                                const u = unseenMessages[roomId] || {};
+                                                const o = unseenOverrides[roomId];
+                                                const useOverride = o && u && o.timestamp === u.timestamp;
+                                                const count = useOverride ? (o.count || 0) : (u.count || 0);
+                                                const time = u.time || o?.time;
+                                                const manual = manualFriendUnread.includes(String(friend.id));
+                                                return (
+                                                    <div className="friend-right" style={{ flexShrink: 0 }}>
+                                                        {time && (
+                                                            <span style={{ fontSize: '0.7rem', color: currentChat?.id === friend.id ? 'rgba(255,255,255,0.8)' : 'var(--text-secondary)', lineHeight: 1 }}>
+                                                                {time}
+                                                            </span>
+                                                        )}
+                                                        {count > 0 ? (
+                                                            <div className="badge" style={{ background: 'var(--accent-primary)', color: '#fff', minWidth: '20px', height: '20px', padding: '0 6px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '10px', fontSize: '0.75rem', lineHeight: 1 }}>
+                                                                {count}
+                                                            </div>
+                                                        ) : manual ? (
+                                                            <div className="badge" style={{ background: 'var(--accent-primary)', width: '20px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '10px' }} />
+                                                        ) : null}
+                                                    </div>
+                                                );
+                                            })()}
+                                        </div>
+                                        <button className="friend-arrow" title="More" onClick={(e) => { e.stopPropagation(); const rect = e.currentTarget.getBoundingClientRect(); setOpenFriendMenu({ id: friend.id, top: rect.top, left: rect.right }); }}>
+                                            <svg width="20" height="20" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+                                                <polyline points="96 48 176 128 96 208" fill="none" stroke={theme === 'dark' ? '#ffffff' : '#000000'} strokeWidth="16" strokeLinecap="round" strokeLinejoin="round" />
+                                            </svg>
+                                        </button>
+                                    </motion.div>
+                                ))}
+                            {friends
+                                .filter(f => {
+                                    const isArch = isArchived('friend', f.id);
+                                    if (!isArch) return true;
+                                    if (showUnreadOnly) {
+                                        const roomId = [user.id, f.id].sort().join('-');
+                                        const u = unseenMessages[roomId] || {};
+                                        const o = unseenOverrides[roomId];
+                                        const useOverride = o && u && o.timestamp === u.timestamp;
+                                        const cnt = useOverride ? (o.count || 0) : (u.count || 0);
+                                        const manual = manualFriendUnread.includes(String(f.id));
+                                        return (cnt > 0 || manual);
+                                    }
+                                    return false;
+                                })
+                                .filter(f => !showOnlineOnly || onlineUsers.includes(f.id))
+                                .filter(f => !showUnreadOnly || ((unseenMessages[[user.id, f.id].sort().join('-')]?.count || unseenOverrides[[user.id, f.id].sort().join('-')]?.count || 0) > 0 || manualFriendUnread.includes(String(f.id))))
+                                .filter(f => {
+                                    const q = search.trim().toLowerCase();
+                                    if (!q) return true;
+                                    return f.username.toLowerCase().includes(q) || (f.about || '').toLowerCase().includes(q);
+                                }).length === 0 && (
+                                    <div style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '20px', fontSize: '0.9rem' }}>
+                                        {showUnreadOnly ? 'No unread chats.' : showOnlineOnly ? 'No friends online.' : 'No friends yet. Add someone!'}
+                                    </div>
+                                )}
+                        </div>
+                    )}
+
+                    {/* Friend contextual menu */}
+                    {/* Sidebar Menu Animation Styles */}
+                    <style>{`
+                        @keyframes menuReveal { 0% { opacity: 0; transform: scale(0.9); filter: blur(10px); } 100% { opacity: 1; transform: scale(1); filter: blur(0px); } }
+                        @keyframes fadeUp { 
+                            0% { opacity: 0; transform: translateY(25px); filter: blur(18px); } 
+                            40% { opacity: 0.5; filter: blur(12px); } 
+                            70% { opacity: 0.8; filter: blur(5px); } 
+                            100% { opacity: 1; transform: translateY(0); filter: blur(0); }
+                        }
+                        .friend-menu {
+                            animation: menuReveal 400ms ease-out forwards;
+                            will-change: transform, opacity, filter;
+                        }
+                        .friend-menu > .item, .friend-menu > div { 
+                            opacity: 0; 
+                            animation: fadeUp 500ms ease-out forwards; 
+                            will-change: transform, opacity, filter; 
+                        }
+                        .friend-menu > .item:nth-child(1), .friend-menu > div:nth-child(1) { animation-delay: 50ms; }
+                        .friend-menu > .item:nth-child(2), .friend-menu > div:nth-child(2) { animation-delay: 120ms; }
+                        .friend-menu > .item:nth-child(3), .friend-menu > div:nth-child(3) { animation-delay: 190ms; }
+                        .friend-menu > .item:nth-child(4), .friend-menu > div:nth-child(4) { animation-delay: 260ms; }
+                        .friend-menu > .item:nth-child(5), .friend-menu > div:nth-child(5) { animation-delay: 330ms; }
+                        .friend-menu > .item:nth-child(6), .friend-menu > div:nth-child(6) { animation-delay: 400ms; }
+                        .friend-menu > .item:nth-child(7), .friend-menu > div:nth-child(7) { animation-delay: 470ms; }
+                        .friend-menu > .item:nth-child(8), .friend-menu > div:nth-child(8) { animation-delay: 540ms; }
+                        .friend-menu > .item:nth-child(9), .friend-menu > div:nth-child(9) { animation-delay: 610ms; }
+                        .friend-menu > .item:nth-child(10), .friend-menu > div:nth-child(10) { animation-delay: 680ms; }
+                        .friend-menu > .item:nth-child(11), .friend-menu > div:nth-child(11) { animation-delay: 750ms; }
+                        .friend-menu > .item:nth-child(12), .friend-menu > div:nth-child(12) { animation-delay: 820ms; }
+                    `}</style>
+
+                    {openFriendMenu && createPortal((() => {
+                        const friend = friends.find(f => String(f.id) === String(openFriendMenu.id));
+                        if (!friend) return null;
+                        const muted = (localStorage.getItem(muteKey(friend.id)) === 'true');
+                        const blocked = (localStorage.getItem(blockKey(friend.id)) === 'true');
+                        const pinned = pinnedFriends.includes(String(friend.id));
+                        const isFav = favourites.includes(String(friend.id));
+                        return (
+                            <div
+                                className="friend-menu menu-animate"
+                                onClick={(e) => e.stopPropagation()}
+                                style={(() => {
+                                    const t = openFriendMenu.top || 0;
+                                    const l = openFriendMenu.left || 0;
+                                    const flipBottom = (typeof window !== 'undefined' && (window.innerHeight - t) < 300);
+                                    const base = { position: 'fixed', left: l - 40, zIndex: 10000 };
+                                    const panel = { background: 'var(--bg-panel)', border: '1px solid var(--border-color)', borderRadius: 12, padding: 8, minWidth: 220, boxShadow: theme === 'dark' ? '0 8px 20px rgba(0,0,0,0.25)' : '0 8px 20px rgba(0,0,0,0.12)' };
+                                    return flipBottom
+                                        ? { ...base, ...panel, bottom: window.innerHeight - t - 10, transformOrigin: 'bottom left' }
+                                        : { ...base, ...panel, top: t - 10, transformOrigin: 'top left' };
+                                })()}
+                            >
+                                <div className="item" onClick={() => { isArchived('friend', friend.id) ? unarchiveItem('friend', friend.id) : archiveItem('friend', friend.id); setOpenFriendMenu(null); }}>
+                                    <FiArchive /> <span>{isArchived('friend', friend.id) ? 'Unarchive chat' : 'Archive chat'}</span>
+                                </div>
+                                <div className="item" onClick={() => { toggleMuteFor(friend.id); setOpenFriendMenu(null); }}>
+                                    <FiBellOff /> <span>{muted ? 'Unmute notifications' : 'Mute notifications'}</span>
+                                </div>
+                                <div className="item" onClick={() => { togglePinFor(friend.id); setOpenFriendMenu(null); }}>
+                                    {pinned ? <BsPinFill /> : <BsPin />} <span>{pinned ? 'Unpin chat' : 'Pin chat'}</span>
+                                </div>
+                                {(() => {
+                                    const rid = getRoomId(friend.id);
+                                    const u = unseenMessages[rid] || {};
+                                    const o = unseenOverrides[rid];
+                                    const useOverride = o && u && o.timestamp === u.timestamp;
+                                    const cnt = useOverride ? (o.count || 0) : (u.count || 0);
+                                    const manual = manualFriendUnread.includes(String(friend.id));
+                                    const hasUnread = cnt > 0 || manual;
+                                    return (
+                                        <div className="item" onClick={() => { hasUnread ? markReadFor(friend.id) : markUnreadFor(friend.id); setOpenFriendMenu(null); }}>
+                                            <FiEdit2 /> <span>{hasUnread ? 'Mark as read' : 'Mark as unread'}</span>
+                                        </div>
+                                    );
+                                })()}
+                                <div className="item" onClick={() => { toggleFavouriteFor(friend.id); setOpenFriendMenu(null); }}>
+                                    <FiPlus /> <span>{isFav ? 'Remove from favourites' : 'Add to favourites'}</span>
+                                </div>
+                                <div style={{ height: 1, background: 'var(--border-color)', margin: '6px 8px' }} />
+                                <div className="item" onClick={() => { toggleBlockFor(friend.id); setOpenFriendMenu(null); }}>
+                                    <span style={{ display: 'inline-flex', width: 18, height: 18, borderRadius: '50%', border: '2px solid currentColor', alignItems: 'center', justifyContent: 'center' }}>⦸</span>
+                                    <span>{blocked ? 'Unblock' : 'Block'}</span>
+                                </div>
+                                <div className="item" onClick={() => deleteChatFor(friend.id)}>
+                                    <FiTrash2 /> <span>Delete chat</span>
+                                </div>
+                            </div>
+                        );
+                    })(), document.body)}
+
+                    {/* Group contextual menu */}
+                    {openGroupMenu && createPortal((() => {
+                        const group = groups.find(g => String(g.id) === String(openGroupMenu.id));
+                        if (!group) return null;
+                        const pinned = pinnedGroups.includes(group.id);
+                        const isFav = favGroups.includes(String(group.id));
+                        return (
+                            <div
+                                className="friend-menu menu-animate"
+                                onClick={(e) => e.stopPropagation()}
+                                style={(() => {
+                                    const t = openGroupMenu.top || 0;
+                                    const l = openGroupMenu.left || 0;
+                                    const flipBottom = (typeof window !== 'undefined' && (window.innerHeight - t) < 300);
+                                    const base = { position: 'fixed', left: l - 40, zIndex: 10000 };
+                                    const panel = { background: 'var(--bg-panel)', border: '1px solid var(--border-color)', borderRadius: 12, padding: 8, minWidth: 220, boxShadow: theme === 'dark' ? '0 8px 20px rgba(0,0,0,0.25)' : '0 8px 20px rgba(0,0,0,0.12)' };
+                                    return flipBottom
+                                        ? { ...base, ...panel, bottom: window.innerHeight - t - 10, transformOrigin: 'bottom left' }
+                                        : { ...base, ...panel, top: t - 10, transformOrigin: 'top left' };
+                                })()}
+                            >
+                                <div className="item" onClick={() => { toggleMuteGroup(group.id); setOpenGroupMenu(null); }}>
+                                    <FiBellOff /> <span>Mute notifications</span>
+                                </div>
+                                <div className="item" onClick={() => { isArchived('group', group.id) ? unarchiveItem('group', group.id) : archiveItem('group', group.id); setOpenGroupMenu(null); }}>
+                                    <FiArchive /> <span>{isArchived('group', group.id) ? 'Unarchive group' : 'Archive group'}</span>
+                                </div>
+                                {(() => {
+                                    const manual = manualGroupUnread.includes(String(group.id));
+                                    const cnt = (unseenOverrides[group.id]?.count) ?? (unseenMessages[group.id]?.count || 0);
+                                    const hasUnread = cnt > 0 || manual;
+                                    return (
+                                        <div className="item" onClick={() => { hasUnread ? markReadGroup(group.id) : markUnreadGroup(group.id); setOpenGroupMenu(null); }}>
+                                            <FiEdit2 /> <span>{hasUnread ? 'Mark as read' : 'Mark as unread'}</span>
+                                        </div>
+                                    );
+                                })()}
+                                <div className="item" onClick={(e) => { togglePinGroup(group.id, e); setOpenGroupMenu(null); }}>
+                                    {pinned ? <BsPinFill /> : <BsPin />} <span>{pinned ? 'Unpin group' : 'Pin group'}</span>
+                                </div>
+                                <div className="item" onClick={() => { toggleFavGroup(group.id); setOpenGroupMenu(null); }}>
+                                    <FiPlus /> <span>{isFav ? 'Remove from favourites' : 'Add to favourites'}</span>
+                                </div>
+                                <div style={{ height: 1, background: 'var(--border-color)', margin: '6px 8px' }} />
+                                <div className="item" onClick={() => { exitGroup(group.id); }}>
+                                    <FiX /> <span>Exit group</span>
+                                </div>
+                            </div>
+                        );
+                    })(), document.body)}
+
+                    {/* Channel contextual menu */}
+                    {openChannelMenu && createPortal((() => {
+                        const channel = channels.find(c => String(c.id) === String(openChannelMenu.id));
+                        if (!channel) return null;
+                        const pinned = pinnedChannels.includes(channel.id);
+                        const muted = (localStorage.getItem(`mute_channel_${channel.id}`) === 'true');
+                        return (
+                            <div
+                                className="friend-menu menu-animate"
+                                onClick={(e) => e.stopPropagation()}
+                                style={(() => {
+                                    const t = openChannelMenu.top || 0;
+                                    const l = openChannelMenu.left || 0;
+                                    const flipBottom = (typeof window !== 'undefined' && (window.innerHeight - t) < 300);
+                                    const base = { position: 'fixed', left: l - 40, zIndex: 10000 };
+                                    const panel = { background: 'var(--bg-panel)', border: '1px solid var(--border-color)', borderRadius: 12, padding: 8, minWidth: 220, boxShadow: theme === 'dark' ? '0 8px 20px rgba(0,0,0,0.25)' : '0 8px 20px rgba(0,0,0,0.12)' };
+                                    return flipBottom
+                                        ? { ...base, ...panel, bottom: window.innerHeight - t - 10, transformOrigin: 'bottom left' }
+                                        : { ...base, ...panel, top: t - 10, transformOrigin: 'top left' };
+                                })()}
+                            >
+                                <div className="item" onClick={() => { onSelectChat({ ...channel, isChannel: true, showInfo: true }); setOpenChannelMenu(null); }}>
+                                    <FiInfo /> <span>Channel Info</span>
+                                </div>
+                                <div className="item" onClick={() => { isArchived('channel', channel.id) ? unarchiveItem('channel', channel.id) : archiveItem('channel', channel.id); setOpenChannelMenu(null); }}>
+                                    <FiArchive /> <span>{isArchived('channel', channel.id) ? 'Unarchive channel' : 'Archive channel'}</span>
+                                </div>
+                                <div className="item" onClick={() => { copyChannelLink(channel.id); setOpenChannelMenu(null); }}>
+                                    <FiLink /> <span>Copy Link</span>
+                                </div>
+                                <div className="item" onClick={() => { toggleMuteChannel(channel.id); setOpenChannelMenu(null); }}>
+                                    <FiBellOff /> <span>{muted ? 'Unmute' : 'Mute'}</span>
+                                </div>
+                                {(() => {
+                                    const manual = !!channelManualUnread[channel.id];
+                                    const hasUnread = (channelAlerts[channel.id] && !channelReadOverrides[channel.id]) || manual;
+                                    return (
+                                        <div className="item" onClick={() => { hasUnread ? markChannelAsRead(channel.id) : markChannelAsUnread(channel.id); setOpenChannelMenu(null); }}>
+                                            <FiEdit2 /> <span>{hasUnread ? 'Mark as read' : 'Mark as unread'}</span>
+                                        </div>
+                                    );
+                                })()}
+                                <div className="item" onClick={() => { togglePinChannel(channel.id); setOpenChannelMenu(null); }}>
+                                    {pinned ? <BsPinFill /> : <BsPin />} <span>{pinned ? 'Unpin' : 'Pin'}</span>
+                                </div>
+                                <div style={{ height: 1, background: 'var(--border-color)', margin: '6px 8px' }} />
+                                {!String(channel.createdBy).includes(String(user?.id)) && (
+                                    <div className="item" onClick={() => toggleFollowChannel(channel.id)}>
+                                        <FiTrash2 /> <span>{channel.followers?.includes(String(user?.id)) ? 'Unfollow' : 'Follow'}</span>
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })(), document.body)}
+
+                    {/* Add Group Modal */}
+                    {showAddGroupModal && (
+                        <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0, 0, 0, 0.7)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
+                            <div className="modal-content" style={{ background: 'var(--bg-secondary)', padding: '24px', borderRadius: '16px', width: '400px', maxWidth: '90%', position: 'relative', boxShadow: '0 4px 20px rgba(0,0,0,0.3)' }}>
+                                <button onClick={() => setShowAddGroupModal(false)} style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}>
+                                    <FiX size={24} />
+                                </button>
+                                <h2 style={{ marginBottom: '20px', color: 'var(--text-primary)' }}>Add Group to Community</h2>
+
+                                <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                                    {(() => {
+                                        const sel = communities.find(c => c.id === selectedCommunityId);
+                                        const available = groups.filter(g =>
+                                            !g.isAnnouncementGroup &&
+                                            g.admins.includes(user.id) &&
+                                            g.id !== sel?.announcementGroupId &&
+                                            !(sel?.subGroups || []).includes(g.id)
+                                        );
+                                        return available.length > 0 ? (
+                                            available.map(group => (
+                                                <div key={group.id} onClick={() => handleAddGroupToCommunity(group.id)} style={{ display: 'flex', alignItems: 'center', padding: '10px', cursor: 'pointer', borderRadius: '8px', marginBottom: '8px', backgroundColor: 'var(--bg-input)' }}>
+                                                    <div style={{ fontWeight: 600, flex: 1 }}>{group.name}</div>
+                                                    <FiPlus color="var(--accent-color)" />
+                                                </div>
+                                            ))
+                                        ) : (
+                                            <div style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '20px' }}>
+                                                No available groups to add. You must be an admin of a group to add it, or all groups are already added to this community.
+                                            </div>
+                                        );
+                                    })()}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Groups Section */}
+                    {(['All', 'Groups'].includes(topFilter)) && groups.filter(g => !isArchived('group', g.id) && !g.isAnnouncementGroup).length > 0 && (!activeSection || activeSection === 'Groups') && (
+                        <div className="groups-section" style={{ marginBottom: '32px' }}>
+                            <div
+                                className="section-title"
+                                onClick={() => {
+                                    if (activeSection === 'Groups') {
+                                        setActiveSection(null);
+                                    } else {
+                                        setActiveSection('Groups');
+                                    }
+                                }}
+                                style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
+                            >
+                                {activeSection === 'Groups' && <FiArrowLeft />}
+                                Groups
+                            </div>
+
+                            {/* Pinned Groups (Outside Expander) */}
+                            {groups
+                                .filter(g => pinnedGroups.includes(g.id) && !g.isAnnouncementGroup && !isArchived('group', g.id))
+                                .filter(g => {
+                                    const q = search.trim().toLowerCase();
+                                    if (!q) return true;
+                                    return g.name.toLowerCase().includes(q);
+                                })
+                                .map(group => (
+                                    <div key={group.id} className={`chat-item friend-row fade-in-up tap-scale ${currentChat?.id === group.id ? 'active' : ''}`} onClick={() => onSelectChat({ ...group, isGroup: true, showInfo: true })} style={{ boxShadow: theme === 'dark' ? 'var(--shadow-card)' : '0 10px 24px rgba(0,0,0,0.16)', borderRadius: '12px', marginBottom: '10px', position: 'relative' }}>
+                                        <div style={{ position: 'relative', width: '50px', height: '50px', marginRight: '12px' }}>
+                                            {group.members.slice(0, 3).map((member, i) => (
+                                                <Avatar
+                                                    key={member.id}
+                                                    src={member.avatar}
+                                                    onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `https://i.pravatar.cc/150?u=${member.id}`; }}
+                                                    alt={member.username}
+                                                    style={{
+                                                        width: '32px',
+                                                        height: '32px',
+                                                        borderRadius: '50%',
+                                                        position: 'absolute',
+                                                        left: `${i * 10}px`,
+                                                        top: '50%',
+                                                        transform: 'translateY(-50%)',
+                                                        border: '1px solid #808080',
+                                                        boxShadow: '0 2px 8px rgba(0,0,0,1)',
+                                                        zIndex: 3 - i,
+                                                        objectFit: 'cover',
+                                                        filter: isEditMode ? 'brightness(0.6)' : 'none'
+                                                    }}
+                                                />
+                                            ))}
+                                            {isEditMode && (
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); archiveItem('group', group.id); }}
+                                                    title="Remove chat"
+                                                    style={{ position: 'absolute', top: '-8px', left: '-8px', background: '#ffebee', border: '1px solid #ff6b6b', color: '#ff6b6b', borderRadius: '50%', width: '26px', height: '26px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.3)' }}
+                                                >
+                                                    <FiTrash2 size={12} />
+                                                </button>
+                                            )}
+                                        </div>
+                                        <div style={{ flex: 1 }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
+                                                    <span style={{ fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap', overflowX: 'auto', overflowY: 'hidden', maxWidth: '100%', color: currentChat?.id === group.id ? '#fff' : 'var(--text-primary)' }}>
+                                                        {group.name}
+                                                        {(() => { try { return (localStorage.getItem(`mute_group_${group.id}`) === 'true') ? <FiBellOff size={14} color={currentChat?.id === group.id ? 'rgba(255,255,255,0.8)' : 'var(--text-secondary)'} title="Muted" /> : null; } catch (_) { return null; } })()}
+                                                    </span>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                        {group.isAnnouncementGroup && <span style={{ fontSize: '0.7rem', background: 'var(--accent-light)', color: 'var(--accent-primary)', padding: '2px 6px', borderRadius: '4px' }}>News</span>}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div style={{ fontSize: '0.8rem', color: currentChat?.id === group.id ? 'rgba(255,255,255,0.8)' : 'var(--text-secondary)', marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                {group.about || `${group.members.length} members`}
+                                            </div>
+                                        </div>
+                                        {/* Right-side: time + unseen */}
+                                        <div className="friend-right" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px', alignSelf: 'stretch', justifyContent: 'center' }}>
+                                            {unseenMessages[group.id]?.time && (
+                                                <div style={{ fontSize: '0.7rem', color: currentChat?.id === group.id ? 'rgba(255,255,255,0.8)' : 'var(--text-secondary)' }}>
+                                                    {unseenMessages[group.id].time}
+                                                </div>
+                                            )}
+                                            {unseenMessages[group.id]?.count > 0 ? (
+                                                <div className="badge" style={{ background: 'var(--accent-primary)', color: '#fff', minWidth: '20px', height: '20px', padding: '0 6px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '10px', fontSize: '0.75rem', lineHeight: 1 }}>
+                                                    {unseenMessages[group.id].count}
+                                                </div>
+                                            ) : manualGroupUnread.includes(String(group.id)) ? (
+                                                <div className="badge" style={{ background: 'var(--accent-primary)', width: '20px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '10px' }} />
+                                            ) : null}
+                                        </div>
+                                        <button className="friend-arrow" title="More" onClick={(e) => { e.stopPropagation(); const rect = e.currentTarget.getBoundingClientRect(); setOpenGroupMenu({ id: group.id, top: rect.top, left: rect.right }); }}>
+                                            <svg width="20" height="20" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+                                                <polyline points="96 48 176 128 96 208" fill="none" stroke={theme === 'dark' ? '#ffffff' : '#000000'} strokeWidth="16" strokeLinecap="round" strokeLinejoin="round" />
+                                            </svg>
+                                        </button>
+                                    </div>
+                                ))}
+
+                            {/* Unpinned Groups Expander */}
+                            {(() => {
+                                const rest = groups
+                                    .filter(g => !pinnedGroups.includes(g.id) && !g.isAnnouncementGroup && !isArchived('group', g.id))
+                                    .filter(g => {
+                                        const q = search.trim().toLowerCase();
+                                        if (!q) return true;
+                                        return g.name.toLowerCase().includes(q);
+                                    });
+                                if (rest.length === 0) return null;
+                                return (
+                                    <div style={{ width: '92%', margin: '8px auto 6px', borderRadius: '15px', boxShadow: theme === 'dark' ? '0 6px 18px rgba(0,0,0,0.55)' : '0 10px 24px rgba(0,0,0,0.16)', background: 'var(--bg-secondary)', paddingBottom: '10px' }}>
+                                        <div onClick={() => setIsGroupsExpanded(v => !v)} className="tap-scale" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', cursor: 'pointer', color: 'var(--text-secondary)' }}>
+                                            <span style={{ fontWeight: 600 }}>New groups</span>
+                                            {isGroupsExpanded ? <FiChevronUp /> : <FiChevronDown />}
+                                        </div>
+                                        <div style={{ maxHeight: isGroupsExpanded ? '1000px' : '0', opacity: isGroupsExpanded ? 1 : 0, overflow: 'hidden', transition: 'max-height 0.4s ease-in-out, opacity 0.3s ease-in-out' }}>
+                                            {rest.map(group => (
+                                                <div key={group.id} className={`chat-item friend-row fade-in-up tap-scale ${currentChat?.id === group.id ? 'active' : ''}`} onClick={() => onSelectChat({ ...group, isGroup: true, showInfo: true })} style={{ boxShadow: 'none', borderRadius: '12px', marginBottom: '10px', position: 'relative', width: '90%', marginLeft: 'auto', marginRight: 'auto' }}>
+                                                    <div style={{ position: 'relative', width: '50px', height: '50px', marginRight: '12px' }}>
+                                                        {group.members.slice(0, 3).map((member, i) => (
+                                                            <Avatar
+                                                                key={member.id}
+                                                                src={member.avatar}
+                                                                onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `https://i.pravatar.cc/150?u=${member.id}`; }}
+                                                                alt={member.username}
+                                                                style={{
+                                                                    width: '32px', height: '32px', borderRadius: '50%', position: 'absolute',
+                                                                    left: `${i * 10}px`, top: '50%', transform: 'translateY(-50%)',
+                                                                    border: '1px solid #808080', boxShadow: '0 2px 8px rgba(0,0,0,1)', zIndex: 3 - i,
+                                                                    objectFit: 'cover', filter: isEditMode ? 'brightness(0.6)' : 'none'
+                                                                }}
+                                                            />
+                                                        ))}
+                                                    </div>
+                                                    <div style={{ flex: 1 }}>
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
+                                                                <span style={{ fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '60%' }}>
+                                                                    {group.name}
+                                                                    {(() => { try { return (localStorage.getItem(`mute_group_${group.id}`) === 'true') ? <FiBellOff size={14} color={currentChat?.id === group.id ? 'rgba(255,255,255,0.8)' : 'var(--text-secondary)'} title="Muted" /> : null; } catch (_) { return null; } })()}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                        <div style={{ fontSize: '0.8rem', color: currentChat?.id === group.id ? 'rgba(255,255,255,0.8)' : 'var(--text-secondary)', marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                            {group.about || `${group.members.length} members`}
+                                                        </div>
+                                                    </div>
+                                                    <div className="friend-right" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px', alignSelf: 'stretch', justifyContent: 'center' }}>
+                                                        {unseenMessages[group.id]?.time && (
+                                                            <div style={{ fontSize: '0.7rem', color: currentChat?.id === group.id ? 'rgba(255,255,255,0.8)' : 'var(--text-secondary)' }}>
+                                                                {unseenMessages[group.id].time}
+                                                            </div>
+                                                        )}
+                                                        {unseenMessages[group.id]?.count > 0 ? (
+                                                            <div className="badge" style={{ background: 'var(--accent-primary)', color: '#fff', minWidth: '20px', height: '20px', padding: '0 6px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '10px', fontSize: '0.75rem', lineHeight: 1 }}>
+                                                                {unseenMessages[group.id].count}
+                                                            </div>
+                                                        ) : manualGroupUnread.includes(String(group.id)) ? (
+                                                            <div className="badge" style={{ background: 'var(--accent-primary)', width: '20px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '10px' }} />
+                                                        ) : null}
+                                                    </div>
+                                                    <button className="friend-arrow" title="More" onClick={(e) => { e.stopPropagation(); const rect = e.currentTarget.getBoundingClientRect(); setOpenGroupMenu({ id: group.id, top: rect.top, left: rect.right }); }}>
+                                                        <svg width="20" height="20" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+                                                            <polyline points="96 48 176 128 96 208" fill="none" stroke={theme === 'dark' ? '#ffffff' : '#000000'} strokeWidth="16" strokeLinecap="round" strokeLinejoin="round" />
+                                                        </svg>
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                );
+                            })()}
+                        </div>
+                    )}
+
+
+                    {/* Story Viewer - Full App */}
+                    {viewingStory && (
+                        <StoryViewer
+                            story={viewingStory}
+                            currentUser={user}
+                            socket={socket}
+                            onClose={() => setViewingStory(null)}
+                        />
+                    )}
+
+                    {/* Delete Community Popover (from edit mode) */}
+                    {deleteConfirm && (
+                        <div
+                            style={{
+                                position: 'fixed',
+                                top: deleteConfirm.y,
+                                left: deleteConfirm.x,
+                                transform: 'translate(8px, 8px)',
+                                background: 'var(--bg-panel)',
+                                border: '1px solid var(--border-color)',
+                                borderRadius: '12px',
+                                padding: '12px',
+                                boxShadow: '0 14px 40px rgba(0,0,0,0.4)',
+                                zIndex: 4000,
+                                minWidth: '240px'
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <div style={{ color: 'var(--text-primary)', fontWeight: 700, marginBottom: '6px' }}>Delete community?</div>
+                            <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '12px' }}>This action cannot be undone.</div>
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                                <button
+                                    onClick={() => setDeleteConfirm(null)}
+                                    style={{
+                                        padding: '6px 10px',
+                                        borderRadius: '8px',
+                                        border: '1px solid var(--border-color)',
+                                        background: 'transparent',
+                                        color: 'var(--text-primary)',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        socket.emit('delete_community', { communityId: deleteConfirm.communityId, userId: user.id });
+                                        setDeleteConfirm(null);
+                                    }}
+                                    style={{
+                                        padding: '6px 10px',
+                                        borderRadius: '8px',
+                                        border: 'none',
+                                        background: '#ff6b6b',
+                                        color: '#fff',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    Delete
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Create Group Modal */}
+                    {showCreateGroup && (
+                        <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0, 0, 0, 0.7)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
+                            <div className="modal-content" style={{ background: 'var(--bg-secondary)', padding: '24px', borderRadius: '16px', width: '400px', maxWidth: '90%', position: 'relative', boxShadow: '0 4px 20px rgba(0,0,0,0.3)' }}>
+                                <button onClick={() => setShowCreateGroup(false)} style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}>
+                                    <FiX size={24} />
+                                </button>
+                                <h2 style={{ marginBottom: '20px', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    <FiUsers /> Create Group
+                                </h2>
+                                <input
+                                    type="text"
+                                    placeholder="Group Name"
+                                    value={groupName}
+                                    onChange={(e) => setGroupName(e.target.value)}
+                                    style={{ width: '100%', padding: '12px', marginBottom: '16px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-input)', color: 'var(--text-primary)', outline: 'none' }}
+                                />
+                                <textarea
+                                    placeholder="About this group (optional)"
+                                    value={groupAbout}
+                                    onChange={(e) => setGroupAbout(e.target.value)}
+                                    rows={3}
+                                    style={{ width: '100%', padding: '12px', marginBottom: '16px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-input)', color: 'var(--text-primary)', outline: 'none', resize: 'vertical' }}
+                                />
+                                <div style={{ marginBottom: '20px' }}>
+                                    <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-secondary)' }}>Select Members:</label>
+                                    <div style={{ maxHeight: '150px', overflowY: 'auto', background: 'var(--bg-input)', borderRadius: '8px', padding: '8px' }}>
+                                        {friends.map(friend => (
+                                            <div key={friend.id} onClick={() => {
+                                                if (selectedMembers.includes(friend.id)) {
+                                                    setSelectedMembers(prev => prev.filter(id => id !== friend.id));
+                                                } else {
+                                                    setSelectedMembers(prev => [...prev, friend.id]);
+                                                }
+                                            }} style={{ display: 'flex', alignItems: 'center', padding: '8px', cursor: 'pointer', borderRadius: '6px', background: selectedMembers.includes(friend.id) ? 'var(--accent-light)' : 'transparent' }}>
+                                                <Avatar src={friend.avatar} alt={friend.username} style={{ width: '24px', height: '24px', borderRadius: '50%', marginRight: '10px' }} />
+                                                <span style={{ flex: 1, color: 'var(--text-primary)' }}>{friend.username}</span>
+                                                {selectedMembers.includes(friend.id) && <FiCheck color="var(--accent-primary)" />}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                                <button onClick={createGroup} style={{ width: '100%', padding: '12px', borderRadius: '8px', background: 'var(--accent-primary)', color: 'white', border: 'none', fontWeight: '600', cursor: 'pointer' }}>
+                                    Create Group
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    <CreateCommunityModal
+                        isOpen={showCreateCommunity}
+                        onClose={() => setShowCreateCommunity(false)}
+                        onCreate={createCommunity}
+                    />
+
+                    {statusFile && (
+                        <StoryUploadModal
+                            file={statusFile}
+                            onClose={() => setStatusFile(null)}
+                            user={user}
+                            socket={socket}
+                            onUploadSuccess={() => setStatusFile(null)}
+                        />
+                    )}
+                    <input type="file" accept="image/*,video/*" ref={fileInputRef} style={{ display: 'none' }} onChange={handleStatusFileSelect} />
+
+                </div>
+            </div>
+            <div className="blur-fade-bottom" />
+        </div>
+    );
+}
+
+export default Sidebar;

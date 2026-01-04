@@ -1,0 +1,15 @@
+export const dummyData = [
+  "React",
+  "Vue",
+  "Svelte",
+  "Next.js",
+  "Napier88",
+  "Gatsby",
+  "NewtonScript",
+  "Angular",
+  "Scala",
+  "Groovy",
+  "Haskell",
+  "Lua",
+  "R",
+];

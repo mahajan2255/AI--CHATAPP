@@ -1,0 +1,403 @@
+[
+  {
+    "id": "1764177819805",
+    "name": "new pods",
+    "description": "",
+    "category": "News",
+    "visibility": "Public",
+    "photo": "http://localhost:3001/uploads/1766559312508.jpg",
+    "createdBy": "1763755172783",
+    "admins": [
+      "1763755172783"
+    ],
+    "members": [
+      "1763755172783",
+      "1764267334632"
+    ],
+    "followers": [
+      "1763755172783",
+      "1764267334632"
+    ],
+    "blocked": [
+      "1763743199505"
+    ],
+    "joinRequests": [],
+    "posts": [
+      {
+        "id": "1764412909342fjhr1t6sr",
+        "type": "image",
+        "text": "",
+        "imageUrl": "http://localhost:3001/uploads/1764412909211.png",
+        "createdAt": 1764412909342,
+        "authorId": "1763755172783",
+        "author": "hi",
+        "reactions": {
+          "😂": [
+            "bye"
+          ]
+        },
+        "shares": 0
+      },
+      {
+        "id": "1764181591093h26klgz8x",
+        "type": "image",
+        "text": "",
+        "imageUrl": "http://localhost:3001/uploads/1764181591087.jpeg",
+        "createdAt": 1764181591093,
+        "authorId": "1763755172783",
+        "author": "hi",
+        "reactions": {
+          "❤️": [
+            "bye"
+          ]
+        },
+        "shares": 0
+      },
+      {
+        "id": "17641814922281e0r17yf9",
+        "type": "image",
+        "text": "",
+        "imageUrl": "http://localhost:3001/uploads/1764181492207.jpeg",
+        "createdAt": 1764181492229,
+        "authorId": "1763755172783",
+        "author": "hi",
+        "reactions": {
+          "❤️": [
+            "bye"
+          ]
+        },
+        "shares": 0
+      },
+      {
+        "id": "1764181222540psvikbob8",
+        "type": "image",
+        "text": "",
+        "imageUrl": "http://localhost:3001/uploads/1764181222527.jpg",
+        "createdAt": 1764181222540,
+        "authorId": "1763755172783",
+        "reactions": {
+          "❤️": [
+            "bye"
+          ]
+        },
+        "shares": 1
+      },
+      {
+        "id": "17641812025156z1vpkwl2",
+        "type": "image",
+        "text": "",
+        "imageUrl": "http://localhost:3001/uploads/1764181202506.jpeg",
+        "createdAt": 1764181202515,
+        "authorId": "1763755172783",
+        "reactions": {
+          "❤️": [
+            "hello",
+            "bye"
+          ]
+        },
+        "shares": 0
+      },
+      {
+        "id": "176418117470580c6o5ohh",
+        "type": "text",
+        "text": "hi",
+        "imageUrl": "",
+        "createdAt": 1764181174705,
+        "authorId": "1763755172783",
+        "reactions": {},
+        "shares": 0
+      },
+      {
+        "id": "1764181141117w367k8w0q",
+        "type": "text",
+        "text": "hi",
+        "imageUrl": "",
+        "createdAt": 1764181141117,
+        "authorId": "1763755172783",
+        "reactions": {},
+        "shares": 0
+      },
+      {
+        "id": "1764180352543nux75ok9o",
+        "type": "image",
+        "text": "",
+        "imageUrl": "http://localhost:3001/uploads/1764180352537.jpeg",
+        "createdAt": 1764180352543,
+        "authorId": "1763755172783",
+        "reactions": {
+          "❤️": [
+            "hi"
+          ]
+        },
+        "shares": 0
+      },
+      {
+        "id": "1764180078129l3q8oh29l",
+        "type": "image",
+        "text": "",
+        "imageUrl": "http://localhost:3001/uploads/1764180078116.png",
+        "createdAt": 1764180078129,
+        "authorId": "1763755172783",
+        "reactions": {},
+        "shares": 0
+      },
+      {
+        "id": "176417974943008qqtj6rc",
+        "type": "text",
+        "text": "hi",
+        "imageUrl": "",
+        "createdAt": 1764179749430,
+        "authorId": "1763755172783",
+        "reactions": {},
+        "shares": 0
+      },
+      {
+        "id": "1764179609648cs87s760v",
+        "type": "text",
+        "text": "hi",
+        "imageUrl": "",
+        "createdAt": 1764179609648,
+        "authorId": "1763755172783",
+        "reactions": {},
+        "shares": 0
+      },
+      {
+        "id": "17641783612245u20kxvac",
+        "type": "image",
+        "text": "",
+        "imageUrl": "http://localhost:3001/uploads/1764178361220.jpeg",
+        "createdAt": 1764178361224,
+        "authorId": "1763755172783",
+        "reactions": {},
+        "shares": 0
+      },
+      {
+        "id": "1764178332015w5c1cdru3",
+        "type": "image",
+        "text": "",
+        "imageUrl": "http://localhost:3001/uploads/1764178332004.jpg",
+        "createdAt": 1764178332015,
+        "authorId": "1763755172783",
+        "reactions": {
+          "❤️": [
+            "hello"
+          ]
+        },
+        "shares": 0
+      },
+      {
+        "id": "1764178323351nbcup1q2p",
+        "type": "text",
+        "text": "hi",
+        "imageUrl": "",
+        "createdAt": 1764178323351,
+        "authorId": "1763755172783",
+        "reactions": {},
+        "shares": 0
+      },
+      {
+        "id": "17641782909999qrjf1l6k",
+        "type": "text",
+        "text": "hi",
+        "imageUrl": "",
+        "createdAt": 1764178290999,
+        "authorId": "1763755172783",
+        "reactions": {},
+        "shares": 0
+      },
+      {
+        "id": "1764178265322gfqu7qzkw",
+        "type": "image",
+        "text": "",
+        "imageUrl": "http://localhost:3001/uploads/1764178265316.jpeg",
+        "createdAt": 1764178265322,
+        "authorId": "1763755172783",
+        "reactions": {
+          "❤️": [
+            "bye"
+          ]
+        },
+        "shares": 0
+      },
+      {
+        "id": "17641780753764fbcg9887",
+        "type": "image",
+        "text": "",
+        "imageUrl": "http://localhost:3001/uploads/1764178075369.png",
+        "createdAt": 1764178075376,
+        "authorId": "1763755172783",
+        "reactions": {
+          "❤️": [
+            "bye"
+          ]
+        },
+        "shares": 0
+      },
+      {
+        "id": "1764178045741nxnhmu1f8",
+        "type": "image",
+        "text": "",
+        "imageUrl": "http://localhost:3001/uploads/1764178045735.jpeg",
+        "createdAt": 1764178045741,
+        "authorId": "1763755172783",
+        "reactions": {
+          "❤️": [
+            "hello"
+          ]
+        },
+        "shares": 0
+      },
+      {
+        "id": "1764177987526l2670fie3",
+        "type": "image",
+        "text": "",
+        "imageUrl": "http://localhost:3001/uploads/1764177987519.jpeg",
+        "createdAt": 1764177987526,
+        "authorId": "1763755172783",
+        "reactions": {},
+        "shares": 0
+      },
+      {
+        "id": "1764177932230rnswiuz2v",
+        "type": "image",
+        "text": "",
+        "imageUrl": "http://localhost:3001/uploads/1764177932220.jpg",
+        "createdAt": 1764177932230,
+        "authorId": "1763755172783",
+        "reactions": {},
+        "shares": 0
+      },
+      {
+        "id": "1764177885850t6oef6tkk",
+        "type": "image",
+        "text": "",
+        "imageUrl": "http://localhost:3001/uploads/1764177885837.jpeg",
+        "createdAt": 1764177885850,
+        "authorId": "1763755172783",
+        "reactions": {},
+        "shares": 0
+      }
+    ],
+    "settings": {
+      "reactions": true,
+      "forwarding": true,
+      "slowMode": 0,
+      "requireApproval": false
+    },
+    "stats": {
+      "totalPosts": 21,
+      "totalFollowers": 2,
+      "activeFollowers": 1,
+      "postsToday": 0,
+      "postsThisWeek": 0,
+      "postsThisMonth": 0,
+      "viewsToday": 1,
+      "viewsThisWeek": 1,
+      "engagementRate": 29,
+      "topPostId": null,
+      "growthRate": -33,
+      "lastActivity": 1764412909355,
+      "followerHistory": [
+        {
+          "date": 1764177819805,
+          "count": 1
+        },
+        {
+          "date": 1764177834102,
+          "count": 2
+        },
+        {
+          "date": 1764177851068,
+          "count": 1
+        },
+        {
+          "date": 1764177854133,
+          "count": 1
+        },
+        {
+          "date": 1764177855649,
+          "count": 2
+        },
+        {
+          "date": 1764178026419,
+          "count": 3
+        },
+        {
+          "date": 1764178313635,
+          "count": 2
+        },
+        {
+          "date": 1764178318519,
+          "count": 3
+        },
+        {
+          "date": 1764179621365,
+          "count": 2
+        },
+        {
+          "date": 1764179622000,
+          "count": 3
+        },
+        {
+          "date": 1764179623378,
+          "count": 2
+        },
+        {
+          "date": 1764179625082,
+          "count": 3
+        },
+        {
+          "date": 1764181169600,
+          "count": 2
+        },
+        {
+          "date": 1764181170633,
+          "count": 3
+        },
+        {
+          "date": 1764348730801,
+          "count": 4
+        },
+        {
+          "date": 1764349195218,
+          "count": 3
+        },
+        {
+          "date": 1764349206234,
+          "count": 4
+        },
+        {
+          "date": 1767343023032,
+          "count": 3
+        },
+        {
+          "date": 1767343197088,
+          "count": 2
+        }
+      ],
+      "postViewEvents": [
+        {
+          "userId": "1763743199505",
+          "postId": "1764412909342fjhr1t6sr",
+          "timestamp": 1767343016794
+        }
+      ],
+      "totalReactions": 11,
+      "totalShares": 1
+    },
+    "userMeta": {
+      "1763743199505": {
+        "username": "hello",
+        "avatar": "http://localhost:3001/uploads/1764252710902.gif"
+      },
+      "1763743221810": {
+        "username": "bye",
+        "avatar": "http://localhost:3001/uploads/1763806620667.jpeg"
+      },
+      "1764267334632": {
+        "username": "admin",
+        "avatar": "http://localhost:3001/uploads/1764268763626.gif"
+      }
+    }
+  }
+]

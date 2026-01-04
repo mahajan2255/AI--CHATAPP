@@ -1,0 +1,454 @@
+import React, { useState, useEffect } from 'react';
+import { Line, Bar, Doughnut } from 'react-chartjs-2';
+import {
+    Chart as ChartJS,
+    CategoryScale,
+    LinearScale,
+    PointElement,
+    LineElement,
+    BarElement,
+    ArcElement,
+    Title,
+    Tooltip,
+    Legend,
+    Filler
+} from 'chart.js';
+import { FiUsers, FiFileText, FiTrendingUp, FiActivity, FiX } from 'react-icons/fi';
+
+// Register Chart.js components
+ChartJS.register(
+    CategoryScale,
+    LinearScale,
+    PointElement,
+    LineElement,
+    BarElement,
+    ArcElement,
+    Title,
+    Tooltip,
+    Legend,
+    Filler
+);
+
+function ChannelStats({ channelId, onClose, currentUser, theme, socket }) {
+    const [stats, setStats] = useState(null);
+    const [loading, setLoading] = useState(true);
+
+    const textColor = theme === 'dark' ? '#FFFFFF' : '#1A1A1A';
+    const secondaryColor = theme === 'dark' ? '#A0A0A0' : '#8E9297';
+
+
+    useEffect(() => {
+        if (!socket) return;
+
+        const handleUpdate = (data) => {
+
+            if (String(data.channelId) === String(channelId)) {
+
+                fetchStats();
+            }
+        };
+
+        const handleReaction = (data) => {
+            if (data.room === channelId) {
+                fetchStats();
+            }
+        };
+
+        socket.on('channel_updated', handleUpdate);
+        socket.on('channel_post_created', handleUpdate);
+        socket.on('receive_reaction', handleReaction);
+        socket.on('channel_post_reacted', handleReaction);
+
+        return () => {
+            socket.off('channel_updated', handleUpdate);
+            socket.off('channel_post_created', handleUpdate);
+            socket.off('receive_reaction', handleReaction);
+            socket.off('channel_post_reacted', handleReaction);
+        };
+    }, [channelId, socket]);
+
+    useEffect(() => {
+        fetchStats();
+        const interval = setInterval(fetchStats, 5000); // Refresh every 5 seconds
+        return () => clearInterval(interval);
+    }, [channelId]);
+
+    const fetchStats = async () => {
+        try {
+
+            const res = await fetch(`http://localhost:3001/channels/${channelId}/stats?userId=${currentUser.id}&t=${Date.now()}`);
+            const data = await res.json();
+            if (data.success) {
+                setStats(data.stats);
+            }
+            setLoading(false);
+        } catch (err) {
+
+            setLoading(false);
+        }
+    };
+
+    if (loading) {
+        return (
+            <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                Loading statistics...
+            </div>
+        );
+    }
+
+    if (!stats) {
+        return (
+            <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                No statistics available
+            </div>
+        );
+    }
+
+    // Prepare chart data
+    const followerHistory = stats.followerHistory || [];
+
+    // Group by day to avoid showing multiple points per day
+    const dailyHistory = {};
+    followerHistory.forEach(h => {
+        const date = new Date(h.date);
+        const dayKey = date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+        // Keep the latest count for each day
+        if (!dailyHistory[dayKey] || h.date > dailyHistory[dayKey].date) {
+            dailyHistory[dayKey] = { date: h.date, count: h.count, label: dayKey };
+        }
+    });
+
+    // Convert to array and sort by date
+    const aggregatedHistory = Object.values(dailyHistory).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    // Use actual history dates for labels
+    const followerLabels = aggregatedHistory.map(h => h.label);
+
+    // If no history, default to today
+    if (followerLabels.length === 0) {
+        followerLabels.push(new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric' }));
+    }
+
+    const followerGrowthData = {
+        labels: followerLabels,
+        datasets: [{
+            label: 'Followers',
+            data: aggregatedHistory.length > 0 ? aggregatedHistory.map(h => h.count) : [stats.totalFollowers || 0],
+            borderColor: 'rgb(102, 126, 234)', // Theme accent color
+            backgroundColor: 'rgba(102, 126, 234, 0.1)',
+            tension: 0.4,
+            fill: true,
+            borderWidth: 2,
+            pointRadius: 4,
+            pointHoverRadius: 6,
+            pointBackgroundColor: 'rgb(102, 126, 234)',
+            pointBorderColor: '#fff',
+            pointBorderWidth: 2
+        }]
+    };
+
+    // Post Activity - Show last 7 days
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const today = new Date();
+    const last7DaysLabels = Array.from({ length: 7 }, (_, i) => {
+        const d = new Date(today);
+        d.setDate(d.getDate() - (6 - i));
+        return days[d.getDay()];
+    });
+
+    // Show today's posts in the last slot, 0s for others (since we don't track daily history yet)
+    const postCounts = Array(6).fill(0).concat([stats.postsToday || 0]);
+
+    const postActivityData = {
+        labels: last7DaysLabels,
+        datasets: [{
+            label: 'Posts',
+            data: postCounts,
+            backgroundColor: 'rgba(102, 126, 234, 0.7)',
+            borderColor: 'rgb(102, 126, 234)',
+            borderWidth: 0,
+            borderRadius: 8,
+            barThickness: 30
+        }]
+    };
+
+    const engagementData = {
+        labels: ['Reactions', 'Shares', 'Views'],
+        datasets: [{
+            data: [
+                stats.totalReactions || 0,
+                stats.totalShares || 0,
+                stats.viewsToday || 0
+            ],
+            backgroundColor: [
+                'rgba(255, 99, 132, 0.7)',
+                'rgba(54, 162, 235, 0.7)',
+                'rgba(255, 206, 86, 0.7)'
+            ],
+            borderColor: [
+                'rgb(255, 99, 132)',
+                'rgb(54, 162, 235)',
+                'rgb(255, 206, 86)'
+            ],
+            borderWidth: 0
+        }]
+    };
+
+    const chartOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                display: true,
+                position: 'bottom',
+                labels: {
+                    color: textColor,
+                    font: { size: 12 },
+                    padding: 15,
+                    usePointStyle: true,
+                    pointStyle: 'circle'
+                }
+            }
+        },
+        scales: {
+            y: {
+                beginAtZero: true,
+                ticks: {
+                    color: secondaryColor,
+                    font: { size: 11 }
+                },
+                grid: {
+                    display: false // Remove grid lines
+                },
+                border: {
+                    display: false
+                }
+            },
+            x: {
+                ticks: {
+                    color: secondaryColor,
+                    font: { size: 11 }
+                },
+                grid: {
+                    display: false // Remove grid lines
+                },
+                border: {
+                    display: false
+                }
+            }
+        }
+    };
+
+    const doughnutOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                display: true,
+                position: 'bottom',
+                labels: {
+                    color: textColor,
+                    font: { size: 12 },
+                    padding: 15,
+                    usePointStyle: true,
+                    pointStyle: 'circle'
+                }
+            }
+        },
+        cutout: '70%' // Make it more modern with larger cutout
+    };
+
+    return (
+        <div style={{
+            height: '100%',
+            width: '100%',
+            background: 'var(--bg-primary)',
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden'
+        }}>
+            {/* Header */}
+            <div style={{
+                padding: '24px',
+                borderBottom: '1px solid var(--border-color)',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                background: 'var(--bg-secondary)'
+            }}>
+                <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 600 }}>Channel Analytics</h2>
+                <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', padding: 0 }}>
+                    <FiX size={24} />
+                </button>
+            </div>
+
+            {/* Scrollable Content */}
+            <div style={{ flex: 1, overflow: 'auto', padding: '24px' }}>
+                {/* KPI Cards */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+                    <KPICard
+                        icon={<FiUsers size={24} />}
+                        title="Total Followers"
+                        value={stats.totalFollowers || 0}
+                        color="#3b82f6"
+                    />
+                    <KPICard
+                        icon={<FiFileText size={24} />}
+                        title="Posts This Month"
+                        value={stats.postsThisMonth || 0}
+                        color="#10b981"
+                    />
+                    <KPICard
+                        icon={<FiActivity size={24} />}
+                        title="Engagement Rate"
+                        value={`${stats.engagementRate || 0}%`}
+                        color="#f59e0b"
+                    />
+                    <KPICard
+                        icon={<FiTrendingUp size={24} />}
+                        title="Growth Rate"
+                        value={`${stats.growthRate || 0}%`}
+                        color="#8b5cf6"
+                    />
+                </div>
+
+                {/* Charts */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '24px' }}>
+                    {/* Follower Growth */}
+                    <div style={{
+                        background: 'var(--bg-secondary)',
+                        padding: '20px',
+                        borderRadius: '16px',
+                        border: '1px solid var(--border-color)',
+                        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)'
+                    }}>
+                        <h3 style={{ margin: '0 0 16px 0', fontSize: '1rem', fontWeight: 600 }}>
+                            Follower Growth {aggregatedHistory.length > 0 ? `(${aggregatedHistory.length} ${aggregatedHistory.length === 1 ? 'day' : 'days'})` : ''}
+                        </h3>
+                        <div style={{ height: '250px' }}>
+                            <Line data={followerGrowthData} options={chartOptions} />
+                        </div>
+                    </div>
+
+                    {/* Post Activity - Using real data */}
+                    <div style={{
+                        background: 'var(--bg-secondary)',
+                        padding: '20px',
+                        borderRadius: '16px',
+                        border: '1px solid var(--border-color)',
+                        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)'
+                    }}>
+                        <h3 style={{ margin: '0 0 16px 0', fontSize: '1rem', fontWeight: 600 }}>Post Activity (This Week)</h3>
+                        <div style={{ height: '250px' }}>
+                            <Bar data={postActivityData} options={chartOptions} />
+                        </div>
+                        <div style={{ marginTop: '12px', fontSize: '0.85rem', color: 'var(--text-secondary)', textAlign: 'center' }}>
+                            Total posts this week: {stats.postsThisWeek || 0}
+                        </div>
+                    </div>
+
+                    {/* Engagement Breakdown - Real data */}
+                    <div style={{
+                        background: 'var(--bg-secondary)',
+                        padding: '20px',
+                        borderRadius: '16px',
+                        border: '1px solid var(--border-color)',
+                        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)'
+                    }}>
+                        <h3 style={{ margin: '0 0 16px 0', fontSize: '1rem', fontWeight: 600 }}>Engagement Overview</h3>
+                        <div style={{ height: '250px' }}>
+                            <Doughnut data={engagementData} options={doughnutOptions} />
+                        </div>
+                    </div>
+
+                    {/* Quick Stats */}
+                    <div style={{
+                        background: 'var(--bg-secondary)',
+                        padding: '20px',
+                        borderRadius: '16px',
+                        border: '1px solid var(--border-color)',
+                        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)'
+                    }}>
+                        <h3 style={{ margin: '0 0 16px 0', fontSize: '1rem', fontWeight: 600 }}>Quick Stats</h3>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                            <StatRow label="Active Followers (7 days)" value={stats.activeFollowers || 0} />
+                            <StatRow label="Posts Today" value={stats.postsToday || 0} />
+                            <StatRow label="Posts This Week" value={stats.postsThisWeek || 0} />
+                            <StatRow label="Views Today" value={stats.viewsToday || 0} />
+                            <StatRow label="Views This Week" value={stats.viewsThisWeek || 0} />
+                            <StatRow label="Total Posts" value={stats.totalPosts || 0} />
+                        </div>
+                    </div>
+                </div>
+
+                {/* Followers List */}
+                <div style={{
+                    background: 'var(--bg-secondary)',
+                    padding: '20px',
+                    borderRadius: '16px',
+                    border: '1px solid var(--border-color)',
+                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)',
+                    marginTop: '24px'
+                }}>
+                    <h3 style={{ margin: '0 0 16px 0', fontSize: '1rem', fontWeight: 600 }}>Followers List</h3>
+                    <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                        {stats.followers && stats.followers.length > 0 ? (
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '12px' }}>
+                                {stats.followers.map(f => (
+                                    <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px', background: 'var(--bg-primary)', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+                                        <img src={f.avatar || "https://i.pravatar.cc/150?img=3"} alt={f.username} style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover' }} />
+                                        <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 500, fontSize: '0.9rem' }}>{f.username}</div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '20px' }}>No followers yet</div>
+                        )}
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function KPICard({ icon, title, value, color }) {
+    return (
+        <div style={{
+            background: 'var(--bg-secondary)',
+            padding: '20px',
+            borderRadius: '12px',
+            border: '1px solid var(--border-color)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '16px'
+        }}>
+            <div style={{
+                width: '56px',
+                height: '56px',
+                borderRadius: '12px',
+                background: `${color}20`,
+                color: color,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+            }}>
+                {icon}
+            </div>
+            <div>
+                <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>{title}</div>
+                <div style={{ fontSize: '1.75rem', fontWeight: 700, color: 'var(--text-primary)' }}>{value}</div>
+            </div>
+        </div>
+    );
+}
+
+function StatRow({ label, value }) {
+    return (
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid var(--border-color)' }}>
+            <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>{label}</span>
+            <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{value}</span>
+        </div>
+    );
+}
+
+export default ChannelStats;
