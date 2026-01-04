@@ -1,0 +1,282 @@
+{
+  "groups": [
+    {
+      "id": "group-1763976009132",
+      "name": "Test Group",
+      "members": [
+        "group_test_user_b",
+        "group_test_user_a"
+      ],
+      "admins": [
+        "group_test_user_a"
+      ],
+      "avatar": "https://i.pravatar.cc/150?img=12",
+      "createdBy": "group_test_user_a",
+      "createdAt": 1763976009132,
+      "adminOnlyChat": false,
+      "roles": [
+        {
+          "id": "owner",
+          "name": "Owner",
+          "color": "#a855f7"
+        },
+        {
+          "id": "admin",
+          "name": "Admin",
+          "color": "#ef4444"
+        },
+        {
+          "id": "mod",
+          "name": "Moderator",
+          "color": "#22c55e"
+        },
+        {
+          "id": "member",
+          "name": "Member",
+          "color": "#6b7280"
+        },
+        {
+          "id": "muted",
+          "name": "Muted",
+          "color": "#f97316"
+        }
+      ],
+      "memberRoles": {
+        "group_test_user_a": "owner",
+        "group_test_user_b": "member"
+      }
+    },
+    {
+      "id": "group-1763976095271",
+      "name": "Test Group",
+      "members": [
+        "group_test_user_b",
+        "group_test_user_a"
+      ],
+      "admins": [
+        "group_test_user_a"
+      ],
+      "avatar": "https://i.pravatar.cc/150?img=12",
+      "createdBy": "group_test_user_a",
+      "createdAt": 1763976095271,
+      "adminOnlyChat": false,
+      "roles": [
+        {
+          "id": "owner",
+          "name": "Owner",
+          "color": "#a855f7"
+        },
+        {
+          "id": "admin",
+          "name": "Admin",
+          "color": "#ef4444"
+        },
+        {
+          "id": "mod",
+          "name": "Moderator",
+          "color": "#22c55e"
+        },
+        {
+          "id": "member",
+          "name": "Member",
+          "color": "#6b7280"
+        },
+        {
+          "id": "muted",
+          "name": "Muted",
+          "color": "#f97316"
+        }
+      ],
+      "memberRoles": {
+        "group_test_user_a": "owner",
+        "group_test_user_b": "member"
+      }
+    },
+    {
+      "id": "group-1764341936084",
+      "name": "mther fkers",
+      "members": [
+        "1763902622664"
+      ],
+      "admins": [],
+      "avatar": "https://i.pravatar.cc/150?img=12",
+      "about": "",
+      "createdBy": "1763755172783",
+      "createdAt": 1764341936084,
+      "adminOnlyChat": false,
+      "roles": [
+        {
+          "id": "owner",
+          "name": "Owner",
+          "color": "#a855f7"
+        },
+        {
+          "id": "admin",
+          "name": "Admin",
+          "color": "#ef4444"
+        },
+        {
+          "id": "mod",
+          "name": "Moderator",
+          "color": "#22c55e"
+        },
+        {
+          "id": "member",
+          "name": "Member",
+          "color": "#6b7280"
+        },
+        {
+          "id": "muted",
+          "name": "Muted",
+          "color": "#f97316"
+        }
+      ],
+      "memberRoles": {
+        "1763755172783": "owner",
+        "1763743221810": "member",
+        "1763902622664": "member",
+        "1763743199505": "member"
+      }
+    },
+    {
+      "id": "group-1767007219935",
+      "name": "Bangers",
+      "members": [
+        "1766839968356",
+        "1763755172783",
+        "1763743221810",
+        "1763743199505"
+      ],
+      "admins": [
+        "1763755172783",
+        "1763743221810",
+        "1766839968356"
+      ],
+      "avatar": "https://i.pravatar.cc/150?img=12",
+      "about": "",
+      "createdBy": "1763755172783",
+      "createdAt": 1767007219935,
+      "adminOnlyChat": false,
+      "roles": [
+        {
+          "id": "owner",
+          "name": "Owner",
+          "color": "#a855f7"
+        },
+        {
+          "id": "admin",
+          "name": "Admin",
+          "color": "#ef4444"
+        },
+        {
+          "id": "mod",
+          "name": "Moderator",
+          "color": "#22c55e"
+        },
+        {
+          "id": "member",
+          "name": "Member",
+          "color": "#6b7280"
+        },
+        {
+          "id": "muted",
+          "name": "Muted",
+          "color": "#f97316"
+        }
+      ],
+      "memberRoles": {
+        "1763755172783": "owner",
+        "1763743221810": "muted",
+        "1766839968356": "admin",
+        "1763743199505": "admin"
+      },
+      "pinnedMessages": [
+        "1767284286282q40avfkmo",
+        "1767024152923rpxxm1jfv",
+        "1767364824642ga0u2kvrv"
+      ],
+      "rolePermissions": {
+        "admin": {
+          "canPin": true,
+          "canChangeSlowMode": true,
+          "canAssignRoles": true,
+          "canPromote": true,
+          "canEditGroupName": true,
+          "canEditGroupPhoto": true,
+          "canSendMedia": true,
+          "canCreatePolls": true,
+          "canDeleteMessages": true,
+          "canInvite": true,
+          "canRemove": true,
+          "canBan": true
+        }
+      },
+      "settings": {
+        "slowMode": 0,
+        "adminFullPermissionsEnabled": true
+      },
+      "bans": {},
+      "communityId": "community-1767356454570"
+    },
+    {
+      "id": "group-1767356454570",
+      "name": "Champions Announcements",
+      "members": [
+        "1763755172783",
+        "1766839968356",
+        "1763743221810",
+        "1763743199505"
+      ],
+      "admins": [
+        "1763755172783"
+      ],
+      "avatar": "https://i.pravatar.cc/150?img=30",
+      "createdBy": "1763755172783",
+      "createdAt": 1767356454570,
+      "adminOnlyChat": true,
+      "isAnnouncementGroup": true,
+      "isGroup": true,
+      "communityId": "community-1767356454570",
+      "permissions": {
+        "posting": "admins",
+        "media": true,
+        "forwarding": true
+      },
+      "settings": {
+        "slowMode": 0,
+        "locked": false,
+        "announcementsOnly": true,
+        "adminFullPermissionsEnabled": true
+      },
+      "pinnedMessages": []
+    },
+    {
+      "id": "group-1767358229017",
+      "name": "Plateaus Announcements",
+      "members": [
+        "1763755172783"
+      ],
+      "admins": [
+        "1763755172783"
+      ],
+      "avatar": "https://i.pravatar.cc/150?img=65",
+      "createdBy": "1763755172783",
+      "createdAt": 1767358229017,
+      "adminOnlyChat": true,
+      "isAnnouncementGroup": true,
+      "isGroup": true,
+      "communityId": "community-1767358229017",
+      "permissions": {
+        "posting": "admins",
+        "media": true,
+        "forwarding": true
+      },
+      "settings": {
+        "slowMode": 0,
+        "locked": false,
+        "announcementsOnly": true
+      },
+      "pinnedMessages": []
+    }
+  ]
+}

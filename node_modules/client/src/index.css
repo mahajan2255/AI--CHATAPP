@@ -1,0 +1,3354 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
+
+:root {
+  --bg-app: #F0F4FA;
+  --bg-panel: #F5F7FA;
+  --bg-card: #FFFFFF;
+  --float-player-bg: rgba(229, 229, 229, 0.85);
+  /* Reduced transparency */
+  /* "Liquid glassy" light */
+  --primary-color: #007bff;
+  --secondary-color: #6c757d;
+  --background-color: #f8f9fa;
+  --detach-duration: 0.9s;
+  /* Slow inertial deceleration with visible physics */
+  --attach-duration: 0.7s;
+  /* Fast attach/exit animation */
+  /* Global slower speed for detach animation */
+  --bg-story-card: #000000;
+  --bg-secondary: #e3e3e3;
+  --bg-header: #F5F7FA;
+  --bg-input: #E8E8E8;
+  --text-primary: #1A1A1A;
+  --text-secondary: #8E9297;
+  --accent-primary: #4949eeff;
+  --accent-light: #E6F0FF;
+  --border-color: #E0E0E0;
+  /* Greyish thin border for light theme */
+  --nav-rail-bg: #FFFFFF;
+  /* Light mode: sent (me) bubble to soft grey with dark text */
+  --msg-sent-bg: #D9D9D9;
+  --msg-sent-text: #1A1A1A;
+  --msg-received-bg: #1C1C1E;
+  --msg-received-text: #FFFFFF;
+  --status-online: #2CC069;
+  --shadow-card: none;
+
+  --font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-weight-regular: 700;
+  /* Bold as base */
+  --font-weight-medium: 800;
+  /* ExtraBold */
+  --font-weight-bold: 900;
+  /* Black */
+
+  /* Glassmorphism Variables */
+  --glass-bg: rgba(255, 255, 255, 0.65);
+  --glass-border: none;
+  --glass-shadow: none;
+  --glass-filter: blur(12px);
+  --pill-bg: rgba(240, 240, 240, 0.7);
+
+  /* Liquid Glass Variables */
+  --c-glass: #bbbbbc;
+  --c-light: #fff;
+  --c-dark: #000;
+  --glass-reflex-dark: 1;
+  --glass-reflex-light: 1;
+  --header-glass-bg: rgba(18, 18, 18, 0.76);
+  /* slightly more transparent for stronger blur */
+  --saturation: 150%;
+  --pinned-border-color: transparent;
+  --goo-buffer-color: transparent;
+  --pinned-inner-shadow: none;
+  --pinned-inner-bg: transparent;
+  --seam-mask-bg: var(--pinned-bg);
+}
+
+/* Ensure header pill bg matches pinned inner in explicit light theme */
+:root[data-theme='light'] .chat-header-pill-glass,
+.theme-light .chat-header-pill-glass {
+  background: var(--pinned-inner-bg) !important;
+  border-color: var(--pinned-border-color) !important;
+  /* force light grey */
+}
+
+/* Explicit light theme: ensure pinned card inner border is light grey */
+:root[data-theme='light'] .card-main-inner,
+.theme-light .card-main-inner {
+  border-color: var(--pinned-border-color) !important;
+  background: var(--pinned-inner-bg) !important;
+}
+
+/* Explicit Light Theme Variables */
+:root[data-theme='light'],
+.theme-light {
+  --bg-app: #ffffff;
+  --bg-panel: #ffffff;
+  --bg-header: #ffffff;
+  --bg-secondary: #e3e3e3;
+  --pinned-bg: #ffffff;
+  --header-glass-bg: #ffffff;
+  --pinned-inner-bg: #ffffff;
+  --pinned-border-color: transparent;
+  --goo-buffer-color: rgba(255, 255, 255, 0.98);
+  --border-color: #E0E0E0;
+  --glass-border: none;
+  --pinned-inner-shadow: none;
+}
+
+/* Remove all shadows in light mode for flat design */
+:root[data-theme='light'] *,
+.theme-light * {
+  box-shadow: none !important;
+}
+
+[data-theme='dark'] {
+  --bg-app: #0a0a0a;
+  /* darker black for more premium feel */
+  --bg-panel: #0f0f0f;
+  --bg-card: #141414;
+  --bg-story-card: #000000;
+  --float-player-bg: rgba(17, 17, 17, 0.85);
+  /* Reduced transparency */
+  /* User request: darker in dark mode */
+  --bg-secondary: #222222;
+  --bg-header: #0f0f0f;
+  --bg-input: #1f1f1f;
+  --text-primary: #FFFFFF;
+  --text-secondary: #C0C0C0;
+  --accent-primary: #4949eeff;
+  --accent-light: rgba(73, 73, 238, 0.15);
+  --border-color: #2A2A2A;
+  /* Greyish thin border for dark theme */
+  --nav-rail-bg: #0d0d0d;
+  /* Slightly brighter rail border for contrast on dark surfaces */
+  --nav-rail-border: rgba(255, 255, 255, 0.08);
+  --msg-sent-bg: #363636;
+  --msg-sent-text: #FFFFFF;
+  --msg-received-bg: #1C1C1E;
+  --msg-received-text: #FFFFFF;
+  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.3);
+
+  /* Glassmorphism Dark Mode */
+  --glass-bg: rgba(24, 24, 24, 0.4);
+  --glass-border: none;
+  /* Use the same greyish border */
+  --glass-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  --pill-bg: rgba(48, 48, 48, 0.7);
+
+  /* Liquid Glass Dark Mode */
+  --glass-reflex-dark: 2;
+  --glass-reflex-light: 0.3;
+  --saturation: 500%;
+  --pinned-border-color: transparent;
+  /* slightly clearer border in dark mode */
+  --goo-buffer-color: rgba(30, 30, 30, 1);
+  /* Match pinned-bg to prevent color glitches */
+  /* Match pinned-bg to prevent color glitches */
+  --pinned-inner-shadow: none;
+  --pinned-inner-bg: #1d1d1d;
+  /* darker solid inner bg for pinned/card content in dark mode */
+  --seam-mask-bg: var(--pinned-bg);
+}
+
+/* Ensure variables apply when dark-mode class is used on container */
+/* Ensure variables apply when dark-mode class is used on container */
+.goo-stack.dark-mode {
+  --pinned-bg: #1d1d1d;
+  --pinned-inner-bg: #1d1d1d;
+  --pinned-border-color: transparent;
+}
+
+/* Ensure chat header pill border is visible in dark mode */
+[data-theme='dark'] .chat-header-pill-glass {
+  border-color: var(--pinned-border-color) !important;
+}
+
+/* Make chat header pill background darker in dark mode */
+[data-theme='dark'] .chat-header-pill,
+[data-theme='dark'] .chat-header-pill-glass,
+.theme-dark .chat-header-pill,
+.theme-dark .chat-header-pill-glass,
+.goo-stack.dark-mode .chat-header-pill,
+.goo-stack.dark-mode .chat-header-pill-glass {
+  background: #1d1d1d !important;
+}
+
+/* Light mode: make reply bar and chat input slightly darker grey */
+:root[data-theme='light'] .reply-goo-stack .reply-bar-goo,
+:root[data-theme='light'] .reply-goo-stack>div {
+  background: #e0e0e0 !important;
+  /* slightly darker than #ececec */
+  border-color: var(--pinned-border-color) !important;
+}
+
+/* Darken card main inner background in dark mode */
+[data-theme='dark'] .card-main-inner,
+.theme-dark .card-main-inner,
+.goo-stack.dark-mode .card-main-inner {
+  background: #1d1d1d !important;
+  border-color: var(--pinned-border-color) !important;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-family);
+  font-weight: var(--font-weight-regular);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: var(--bg-app);
+  color: var(--text-primary);
+  height: 100vh;
+  overflow: hidden;
+  transition: background-color 0.5s ease, color 0.5s ease;
+}
+
+input,
+button,
+textarea,
+select {
+  font-family: inherit;
+  font-weight: inherit;
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-text-stroke: 0.6px;
+  /* Simulate extra boldness */
+}
+
+/* User requested lower weight for 3-dots, friends, group, channel menus */
+.msg-menu-anim,
+.msg-menu-anim *,
+.contact-info,
+.contact-info *,
+.group-info-sidebar,
+.group-info-sidebar *,
+.channel-info-sidebar,
+.channel-info-sidebar *,
+.dropdown-menu,
+.dropdown-menu * {
+  -webkit-text-stroke: 0 !important;
+}
+
+/* Reset specific text to lighter weights */
+.msg-menu-anim div,
+.option-item,
+.option-label,
+.member-name,
+.member-status,
+.footer-btn,
+.sidebar-header,
+.contact-header,
+.info-header {
+  font-weight: 600 !important;
+  /* SemiBold instead of Black */
+}
+
+#root {
+  width: 100%;
+  height: 100%;
+  display: flex;
+}
+
+/* Layout Structure */
+.app-container {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  background: var(--bg-app);
+}
+
+/* Navigation Rail */
+.nav-rail {
+  width: 62px;
+  flex-shrink: 0;
+  background: var(--nav-rail-bg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px 0;
+  border-right: 1px solid var(--nav-rail-border, var(--border-color));
+  z-index: 10;
+}
+
+.nav-item {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 8px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: all 0.2s;
+}
+
+/* Make nav icons thicker and fill when active/pressed */
+.nav-item svg {
+  width: 28px;
+  height: 28px;
+  stroke-width: 3.2;
+  transition: stroke-width 0.2s ease, fill 0.2s ease, color 0.2s ease, width 0.2s ease, height 0.2s ease;
+}
+
+.nav-item:hover svg {
+  stroke-width: 3.6;
+  width: 30px;
+  height: 30px;
+}
+
+.nav-item.active svg,
+.nav-item:active svg {
+  stroke-width: 4.0;
+  width: 32px;
+  height: 32px;
+}
+
+.nav-item.active svg *,
+.nav-item:active svg * {
+  fill: currentColor !important;
+}
+
+/* Exception: status icon should not be filled when active */
+.nav-item.status-item.active svg *,
+.nav-item.status-item:active svg * {
+  fill: none !important;
+}
+
+.nav-item.active,
+.nav-item:hover {
+  background: rgba(128, 128, 128, 0.15);
+  color: var(--accent-primary);
+}
+
+/* Make selected (active) nav item circular */
+.nav-item.active {
+  border-radius: 50%;
+}
+
+.nav-logo {
+  width: 44px;
+  height: 44px;
+  background: var(--accent-light);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 40px;
+  font-size: 1.5rem;
+}
+
+/* Sidebar */
+.sidebar {
+  width: 330px;
+  flex-shrink: 0;
+  background: var(--bg-header);
+  backdrop-filter: var(--glass-filter);
+  -webkit-backdrop-filter: var(--glass-filter);
+  display: flex;
+  flex-direction: column;
+  padding: 24px;
+  border-right: var(--glass-border);
+  /* iOS-like sheet entrance */
+  animation: sidebarSlideIn 520ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+  transform: translateZ(0);
+}
+
+.sidebar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 24px;
+}
+
+.search-bar {
+  background: var(--bg-input);
+  border-radius: 12px;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 24px;
+  box-shadow: var(--shadow-card);
+}
+
+.search-input {
+  border: none;
+  background: transparent;
+  width: 100%;
+  outline: none;
+  font-family: var(--font-family);
+  color: var(--text-primary);
+}
+
+.section-title {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-bottom: 16px;
+  font-weight: 500;
+}
+
+.liquid-button {
+  background: var(--liquid-gradient);
+  background-size: 200% 200%;
+  animation: liquidFlow 3s ease infinite;
+  border: none;
+  color: white;
+}
+
+.liquid-button-red {
+  background: linear-gradient(135deg, #ff3b30, #ff9500, #ff3b30);
+  background-size: 200% 200%;
+  animation: liquidFlow 3s ease infinite;
+  border: none;
+  color: white;
+}
+
+.liquid-button-pink {
+  background: linear-gradient(135deg, #ff2d55, #bf5af2, #ff2d55);
+  background-size: 200% 200%;
+  animation: liquidFlow 3s ease infinite;
+  border: none;
+  color: white;
+}
+
+@keyframes liquidFlow {
+  0% {
+    background-position: 0% 50%;
+  }
+
+  50% {
+    background-position: 100% 50%;
+  }
+
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.chat-item {
+  padding: 12px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  transition: background 0.2s;
+  margin-bottom: 8px;
+  background: var(--bg-secondary);
+  box-shadow: none;
+}
+
+.chat-item.active {
+  background: var(--accent-primary);
+  color: white;
+}
+
+.chat-item.active .chat-msg {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.chat-item.active .chat-time {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+/* Chat Window */
+.chat-window {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: transparent !important;
+  backdrop-filter: var(--glass-filter);
+  -webkit-backdrop-filter: var(--glass-filter);
+  margin: 0;
+  /* Removed margins for full utilization */
+  border-radius: 0;
+  /* Removed border radius for full screen feel */
+  box-shadow: none;
+  /* Removed shadow as it's full screen */
+  overflow: hidden;
+  position: relative;
+}
+
+.chat-header {
+  padding: 16px 24px;
+  border-bottom: none;
+  display: flex;
+  align-items: center;
+  background: transparent;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 2000;
+  transition: right 0.3s ease;
+}
+
+/* Floating, glassy pill container for header content */
+.theme-dark,
+:root:not([data-theme='light']) {
+  /* Match pinned message bar with chat header background */
+  --pinned-bg: #1d1d1d;
+}
+
+.chat-header-pill {
+  width: 100%;
+  position: relative;
+  /* Visual styles moved to glass layer */
+}
+
+.chat-header-pill-glass {
+  position: absolute;
+  inset: 0;
+  background: var(--pinned-bg, rgba(18, 18, 18, 0.76));
+  /* more transparent for stronger blur */
+  border: 1px solid var(--pinned-border-color);
+  border-radius: inherit;
+  /* Follow pill rounding during width animation */
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  z-index: 0;
+  will-change: transform;
+  transform: translateZ(0);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.chat-header-pill-content {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: none;
+  /* avoid double border with glass layer */
+  border-radius: inherit;
+  /* Follow pill radius during animations */
+  /* Keep overall header pill fixed; scrolling handled by inner pills container */
+  overflow: hidden;
+  z-index: 2;
+}
+
+/* Apply goo filter only during detach animation */
+.goo-stack.active {
+  will-change: transform;
+  transform: translateZ(0);
+}
+
+/* PERFORMANCE: Disable expensive backdrop-filters on children during goo animation */
+.goo-stack.active *:not(.pinned-char) {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  box-shadow: none !important;
+  mix-blend-mode: normal !important;
+  filter: none !important;
+  /* disable nested filters and reduce paint cost */
+}
+
+/* EXCEPTION: Allow blur on the text reveal overlay */
+.goo-stack .card-main .card-main-inner::after,
+.card-main .card-main-inner::after {
+  filter: blur(40px) !important;
+  /* Will be animated by blurReveal keyframes */
+}
+
+/* EXCEPTION: Allow blur on pinned characters (implicit via :not above) */
+
+
+/* DARK MODE SPECIFIC OPTIMIZATIONS */
+.goo-stack.dark-mode.active .chat-header-pill,
+.goo-stack.dark-mode.active .chat-header-pill-glass,
+.goo-stack.dark-mode.active .card-main-inner {
+  /* Removed box-shadow: none to allow buffer in dark mode */
+  /* Removed filter: none to allow gooey effect in dark mode */
+  mix-blend-mode: normal !important;
+  will-change: transform, border-radius, opacity;
+}
+
+/* Add buffer shadow to prevent dark edges in light mode goo */
+.goo-stack.active .chat-header-pill-glass,
+.goo-stack.active .card-main {
+  box-shadow: 0 0 0 4px var(--goo-buffer-color);
+}
+
+/* Disable buffer shadow in dark mode - causes white glitches */
+.goo-stack.dark-mode.active .chat-header-pill-glass,
+.goo-stack.dark-mode.active .card-main {
+  box-shadow: none !important;
+  background: #1d1d1d !important;
+  backdrop-filter: none !important;
+  /* Disable glass reflections during gooey */
+}
+
+/* Also ensure card-main-inner matches */
+.goo-stack.dark-mode.active .card-main-inner {
+  background: #1d1d1d !important;
+  backdrop-filter: none !important;
+  /* Disable glass reflections during gooey */
+}
+
+/* Dark mode goo: remove borders to prevent black seam/flicker at filter boundary */
+.goo-stack.dark-mode.active .chat-header-pill,
+.goo-stack.dark-mode.active .chat-header-pill-glass,
+.goo-stack.dark-mode.active .card-main,
+.goo-stack.dark-mode.active .card-main-inner,
+.reply-goo-stack.dark-mode.active .reply-bar-goo {
+  border: none !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+/* Ensure identical dark backgrounds on both goo children in dark mode */
+.reply-goo-stack.dark-mode.active .reply-bar-goo,
+.reply-goo-stack.dark-mode.active>div {
+  background: #1d1d1d !important;
+}
+
+/* Force GPU compositing to reduce subpixel seams */
+.goo-stack,
+.reply-goo-stack {
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  will-change: transform, filter;
+}
+
+/* Prevent background bleed at rounded corners under filter in dark mode */
+.goo-stack.dark-mode .chat-header-pill-glass,
+.goo-stack.dark-mode .card-main,
+.reply-goo-stack.dark-mode .reply-bar-goo {
+  background-clip: padding-box;
+  outline: 1px solid transparent;
+  /* stabilize AA without visible border */
+}
+
+.goo-stack.dark-mode {
+  filter: url(#goo-effect-dark) !important;
+}
+
+/* During detach, make borders transparent to avoid visible border artifacts */
+.goo-stack.active .chat-header-pill-glass {
+  border-color: transparent !important;
+}
+
+.goo-stack.active .card-main-inner {
+  border-color: transparent !important;
+}
+
+/* Header stretch effect triggered during detach */
+.chat-header.header-stretch .chat-header-pill-glass,
+.chat-header.header-stretch .chat-header-pill-content {
+  transform-origin: top center;
+  animation: none;
+  /* detach animation removed */
+}
+
+@keyframes headerStretch {
+  0% {
+    transform: scaleY(1);
+  }
+
+  30% {
+    transform: scaleY(1.08);
+  }
+
+  55% {
+    transform: scaleY(0.98);
+  }
+
+  75% {
+    transform: scaleY(1.02);
+  }
+
+  100% {
+    transform: scaleY(1);
+  }
+}
+
+/* Animated blur overlay that plays only on detach */
+.chat-header-blur-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  /* Match header pill height for a fuller sweep */
+  height: 68px;
+  border-radius: 15px;
+  /* match header rounding */
+  /* Show more of the sweep but keep soft inset to avoid artifacts */
+  clip-path: inset(0 10px 6px 10px round 24px);
+  /* Uniform darker grey tint in dark mode (no gradient for consistency) */
+  background: rgba(12, 12, 12, 0.82);
+  /* Darker tint; avoid extra filter blur to reduce jank */
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  mix-blend-mode: screen;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 3000;
+  /* above content for visible sweep */
+  /* No vertical sweep; opacity-only fade */
+  will-change: opacity;
+  animation: none;
+  /* no detach overlay animation */
+}
+
+/* Slow, smooth fade for header blur only during detach */
+/* 🔹 Base state – invisible until activated */
+.chat-header-blur-overlay {
+  opacity: 0;
+  transition: opacity 0.2s ease-out;
+  pointer-events: none;
+}
+
+/* 🔹 Dark mode optimization: remove expensive filters */
+[data-theme='dark'] .chat-header-blur-overlay,
+.theme-dark .chat-header-blur-overlay,
+.goo-stack.dark-mode .chat-header-blur-overlay {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  mix-blend-mode: normal !important;
+  background: rgba(40, 40, 40, 0.4);
+  /* Simpler fade without blend mode */
+}
+
+/* 🔹 Animation trigger when goo is active */
+.goo-stack.active .chat-header-blur-overlay {
+  animation: headerBlurFadeSmooth 1.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+}
+
+/* 🔹 Prevent overlay blocking goo mesh and content */
+.goo-stack.mesh-active .chat-header-blur-overlay {
+  display: none !important;
+}
+
+/* 🔥 Smooth blur fade timing:
+   - fade IN quickly → hold briefly → melt away smoothly
+*/
+@keyframes headerBlurFadeSmooth {
+  0% {
+    opacity: 0;
+  }
+
+  20% {
+    opacity: 1;
+  }
+
+  60% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
+
+/* Horizontally scrolling pills area */
+.chat-header-pills {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  overflow-x: auto;
+  font-size: 1rem;
+}
+
+.card-main-inner {
+  font-size: 1.1rem;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Helvetica Neue", Helvetica, Arial, system-ui, sans-serif !important;
+}
+
+/* Light mode: make blur and pinned bar backgrounds white */
+@media (prefers-color-scheme: light) {
+  :root {
+    --pinned-bg: #ececec;
+    --header-glass-bg: #ececec;
+    --pinned-border-color: transparent;
+    /* light grey border for light mode */
+    --pinned-inner-bg: #ececec;
+    /* slightly darker than white for inner */
+    --seam-mask-bg: var(--pinned-inner-bg);
+  }
+
+  .chat-header-blur-overlay {
+    background: linear-gradient(to bottom,
+        rgba(255, 255, 255, 0.92) 0%,
+        rgba(255, 255, 255, 0.74) 40%,
+        rgba(255, 255, 255, 0.45) 100%);
+  }
+
+  .chat-header-pill-glass {
+    background: var(--pinned-inner-bg) !important;
+    border-color: var(--pinned-border-color) !important;
+    /* ensure light grey border */
+  }
+
+  /* Ensure pinned bar inner uses the same light grey border */
+  .card-main-inner {
+    border-color: var(--pinned-border-color) !important;
+    background: var(--pinned-inner-bg) !important;
+  }
+}
+
+/* Explicit theme toggles some apps use */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  /* IE and Edge */
+  scrollbar-width: none;
+  /* Firefox */
+  overflow-x: hidden !important;
+  /* Prevent horizontal scroll */
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Blur overlay for expanders - hidden by default */
+.expander-blur-overlay {
+  display: none;
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 120px;
+  background: linear-gradient(to top, var(--bg-panel) 0%, transparent 100%);
+  backdrop-filter: blur(64px) brightness(0.7);
+  -webkit-backdrop-filter: blur(64px) brightness(0.7);
+  -webkit-mask-image: linear-gradient(to top, black 0%, transparent 100%);
+  mask-image: linear-gradient(to top, black 0%, transparent 100%);
+  pointer-events: none;
+  z-index: 5;
+  border-bottom-left-radius: inherit;
+  border-bottom-right-radius: inherit;
+}
+
+/* Visible only in dark mode */
+:root[data-theme='dark'] .expander-blur-overlay,
+.theme-dark .expander-blur-overlay {
+  display: block;
+}
+
+:root[data-theme='light'],
+.theme-light {
+  --pinned-bg: #ffffff;
+  --header-glass-bg: #ffffff;
+  --pinned-border-color: #E0E0E0;
+  /* light grey border for light mode */
+  --pinned-inner-bg: #ececec;
+  /* slightly darker than white for inner */
+  --seam-mask-bg: var(--pinned-inner-bg);
+}
+
+:root[data-theme='light'] .chat-header-blur-overlay,
+.theme-light .chat-header-blur-overlay {
+  background: linear-gradient(to bottom,
+      rgba(255, 255, 255, 1) 0%,
+      rgba(255, 255, 255, 0.82) 40%,
+      rgba(255, 255, 255, 0.55) 100%);
+  /* Nudge pills slightly left */
+  margin-left: -6px;
+  /* Hide scrollbars cross-browser */
+  scrollbar-width: none;
+  /* Firefox */
+  -ms-overflow-style: none;
+  /* IE/Edge */
+}
+
+/* Explicit dark theme: add a subtle but stronger white sweep for goo blur */
+[data-theme='dark'] .chat-header-blur-overlay,
+.theme-dark .chat-header-blur-overlay {
+  background: linear-gradient(to bottom,
+      rgba(255, 255, 255, 0.6) 0%,
+      rgba(255, 255, 255, 0.42) 40%,
+      rgba(255, 255, 255, 0.22) 100%);
+}
+
+/* Ensure individual pills don't wrap internally */
+.chat-header-pills>* {
+  white-space: nowrap;
+}
+
+/* WebKit scrollbar hide */
+.chat-header-pills::-webkit-scrollbar {
+  display: none;
+}
+
+/* Role pills viewport scrollbar hiding */
+.role-pills-viewport {
+  scrollbar-width: none;
+  /* Firefox */
+  -ms-overflow-style: none;
+  /* IE/Edge */
+}
+
+.role-pills-viewport::-webkit-scrollbar {
+  display: none;
+  /* WebKit browsers */
+}
+
+/* Disable mesh C-shapes and related animations */
+.goo-stack::before,
+.goo-stack::after {
+  content: none !important;
+  display: none !important;
+}
+
+/* Mask the facing edges so no red appears in the detach gap */
+.goo-stack.mesh-active .chat-header-pill {
+  position: relative;
+}
+
+.goo-stack.mesh-active .chat-header-pill::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -6px;
+  height: 16px;
+  /* slim mask just along the seam */
+  background: var(--seam-mask-bg);
+  border-bottom-left-radius: 24px;
+  border-bottom-right-radius: 24px;
+  z-index: 5000;
+  /* above mesh and content */
+  pointer-events: none;
+  opacity: 1;
+  animation: seamMaskFade var(--detach-duration, 0.6s) ease-out forwards;
+  animation-delay: calc(var(--detach-duration, 0.6s) * 0.4);
+}
+
+.goo-stack.mesh-active .card-main {
+  position: absolute;
+  /* ensure z-index works predictably */
+}
+
+.goo-stack.mesh-active .card-main::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -6px;
+  height: 16px;
+  /* slim mask just along the seam */
+  background: var(--seam-mask-bg);
+  border-top-left-radius: 24px;
+  border-top-right-radius: 24px;
+  z-index: 5000;
+  /* above mesh and content */
+  pointer-events: none;
+  opacity: 1;
+  animation: seamMaskFade var(--detach-duration, 0.6s) ease-out forwards;
+  animation-delay: calc(var(--detach-duration, 0.6s) * 0.4);
+}
+
+@keyframes seamMaskFade {
+  0% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
+.chat-body {
+  flex: 1;
+  padding: 30px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  background: transparent;
+}
+
+.message-container {
+  display: flex;
+  gap: 12px;
+  max-width: 70%;
+  animation: fadeIn 0.3s ease;
+}
+
+.message-container.me {
+  align-self: flex-end;
+  flex-direction: row-reverse;
+}
+
+.message-bubble {
+  padding: 8px 14px;
+  border-radius: 16px;
+  font-size: 1.1rem;
+  line-height: 1.4;
+  position: relative;
+  word-wrap: break-word;
+  white-space: pre-wrap;
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+.message-container.me .message-bubble {
+  background: var(--msg-sent-bg);
+  color: var(--msg-sent-text);
+  border-bottom-right-radius: 4px;
+}
+
+/* Light mode: make sender (right side) bubbles greyish for better contrast */
+[data-theme='light'] .message-container.me .message-bubble {
+  background-color: #e0e0e0 !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--pinned-border-color);
+}
+
+.message-container.other .message-bubble {
+  background: var(--msg-received-bg);
+  color: var(--msg-received-text);
+  border-bottom-left-radius: 4px;
+}
+
+.message-container.centered {
+  align-self: center;
+  justify-content: center;
+  max-width: 85%;
+}
+
+.message-container.centered .message-bubble {
+  background: rgba(128, 128, 128, 0.15);
+  color: var(--text-primary);
+  text-align: center;
+  border-radius: 16px;
+  backdrop-filter: blur(10px);
+}
+
+/* Theme-aware send pulse for newly sent messages */
+.message-bubble.animate-delivered {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 0;
+  animation: sendOutline 900ms ease-out forwards;
+}
+
+@keyframes sendOutline {
+  0% {
+    outline-color: var(--accent-primary);
+    outline-offset: 0;
+  }
+
+  60% {
+    outline-color: var(--accent-primary);
+    outline-offset: 4px;
+  }
+
+  100% {
+    outline-color: transparent;
+    outline-offset: 8px;
+  }
+}
+
+.chat-footer {
+  padding: 20px 30px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+
+}
+
+.input-wrapper {
+  flex: 1;
+  background: var(--pinned-bg);
+  border-radius: 16px;
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+}
+
+.chat-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  font-family: var(--font-family);
+  font-size: 0.95rem;
+
+}
+
+/* Utilities */
+.avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.avatar-sm {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.badge {
+  background: var(--accent-primary);
+  color: white;
+  font-size: 0.7rem;
+  padding: 2px 6px;
+  border-radius: 10px;
+  min-width: 16px;
+  text-align: center;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* iOS-like springy slide for the left sidebar */
+@keyframes sidebarSlideIn {
+  0% {
+    opacity: 0;
+    transform: translateX(-16px) scale(0.985);
+  }
+
+  60% {
+    opacity: 1;
+    transform: translateX(0) scale(1.003);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+/* Utility: subtle fade+slide for list rows */
+.fade-in-up {
+  animation: fadeIn 320ms ease-out both;
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+  transform: translateZ(0);
+}
+
+/* Utility: tap scale for interactive cells (profiles, list items) */
+.tap-scale {
+  transition: transform 120ms ease, box-shadow 180ms ease, background 180ms ease;
+}
+
+.tap-scale:active {
+  transform: scale(0.98);
+}
+
+/* Enhance chat-item interactions and appearance */
+.chat-item {
+  transition: background 200ms ease, transform 220ms ease;
+}
+
+.chat-item:hover {
+  transform: translateY(-1px);
+}
+
+.chat-item:active {
+  transform: scale(0.98);
+}
+
+/* Smooth scrolling momentum like iOS */
+.sidebar,
+.right-sidebar,
+.chat-body {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Motion accessibility: reduce animations if user prefers reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* Global Resets to prevent black bars */
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  /* Prevent scroll/black bars */
+  background: var(--bg-app);
+  /* Ensure background matches theme */
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+@keyframes highlight-pulse {
+  0% {
+    background-color: rgba(0, 122, 255, 0.1);
+  }
+
+  50% {
+    background-color: rgba(0, 122, 255, 0.3);
+  }
+
+  100% {
+    background-color: transparent;
+  }
+}
+
+.highlight-message {
+  animation: highlight-pulse 2s ease-out;
+  border-radius: 12px;
+}
+
+.right-sidebar {
+  width: 350px;
+  background: var(--bg-panel);
+  border-left: 1px solid var(--border-color);
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10;
+  overflow-y: auto;
+  /* Start off-canvas (closed) */
+  transform: translateX(100%);
+  transition: transform 420ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
+  backface-visibility: hidden;
+  transform: translateZ(0) translateX(100%);
+  display: flex;
+  flex-direction: column;
+  contain: layout paint size;
+}
+
+/* Light mode: use same shadow intensity as Sidebar.jsx for info sidebar boxes */
+[data-theme='light'] .right-sidebar .chat-item,
+[data-theme='light'] .right-sidebar .card,
+[data-theme='light'] .right-sidebar .panel,
+[data-theme='light'] .right-sidebar .expander,
+[data-theme='light'] .right-sidebar .box {
+  box-shadow: none !important;
+  border-radius: 12px;
+}
+
+/* Prevent shadow clipping inside expanders */
+.right-sidebar .expander-content {
+  overflow: visible;
+}
+
+.right-sidebar.open {
+  transform: translateX(0);
+}
+
+/* Inner content animation for info sidebars */
+.right-sidebar-content {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  opacity: 0;
+  transition: opacity 300ms ease;
+  will-change: opacity;
+}
+
+.right-sidebar.open .right-sidebar-content {
+  opacity: 1;
+  transition-delay: 150ms;
+}
+
+@keyframes blink {
+  0% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.4;
+  }
+
+  100% {
+    opacity: 1;
+  }
+}
+
+/* Menu Animation (blur removed) */
+@keyframes menu-enter {
+  0% {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.menu-animate {
+  animation: menu-enter 0.2s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+  will-change: transform, opacity, filter;
+}
+
+/* Comment Bubble Animation */
+@keyframes comment-bubble-enter {
+  0% {
+    opacity: 0;
+    transform: scale(0.8);
+    filter: blur(10px);
+  }
+
+  60% {
+    transform: scale(1.05);
+  }
+
+  100% {
+    opacity: 1;
+    transform: scale(1);
+    filter: blur(0);
+  }
+}
+
+.comment-bubble-animate {
+  animation: comment-bubble-enter 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  will-change: transform, opacity, filter;
+}
+
+/* Comment Letter Animation - Individual Letter Reveal with Motion Blur */
+@keyframes letter-blur-enter {
+  0% {
+    opacity: 0;
+    filter: blur(20px);
+    transform: translateX(15px);
+  }
+
+  30% {
+    opacity: 0.6;
+    filter: blur(14px);
+    transform: translateX(10px);
+  }
+
+  60% {
+    opacity: 0.9;
+    filter: blur(6px);
+    transform: translateX(3px);
+  }
+
+  80% {
+    opacity: 1;
+    filter: blur(2px);
+    transform: translateX(1px);
+  }
+
+  100% {
+    opacity: 1;
+    filter: blur(0);
+    transform: translateX(0);
+  }
+}
+
+.comment-letter-animate {
+  display: inline-block;
+  animation: letter-blur-enter 0.45s cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
+  opacity: 0;
+  will-change: opacity, transform, filter;
+}
+
+/* Message Bubble Animation (blur removed) */
+@keyframes message-appear {
+  0% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.message-blur-animate {
+  animation: none !important;
+  will-change: auto;
+}
+
+/* Sidebar Arrow Animation */
+@keyframes arrow-reveal {
+  0% {
+    opacity: 0;
+    transform: translate(10px, -50%);
+    filter: blur(80px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translate(0, -50%);
+    filter: blur(0);
+  }
+}
+
+.arrow-blur-animate {
+  animation: arrow-reveal 0.3s ease-out forwards;
+  will-change: opacity, transform, filter;
+}
+
+/* Sidebar Content Staggered Fade-Up Animation (blur removed) */
+@keyframes sidebar-item-fade {
+  0% {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.sidebar-item-animate {
+  opacity: 0;
+  animation: sidebar-item-fade 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+  will-change: opacity, transform, filter;
+}
+
+/* Unseen Count Badge Animations */
+@keyframes badge-appear {
+  0% {
+    opacity: 0;
+    transform: scale(0.3);
+    filter: blur(60px);
+  }
+
+  60% {
+    transform: scale(1.15);
+  }
+
+  100% {
+    opacity: 1;
+    transform: scale(1);
+    filter: blur(0);
+  }
+}
+
+@keyframes number-slide {
+  0% {
+    transform: translateY(-100%);
+    opacity: 0;
+    filter: blur(40px);
+  }
+
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+
+.badge-animate {
+  animation: badge-appear 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  will-change: opacity, transform, filter;
+}
+
+.badge-number {
+  display: inline-block;
+  animation: number-slide 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+  will-change: transform, opacity, filter;
+}
+
+/* Liquid Glass Effect */
+.liquid-glass {
+  background-color: color-mix(in srgb, var(--c-dark) 50%, transparent);
+  backdrop-filter: blur(20px) url(#switcher) saturate(var(--saturation));
+  -webkit-backdrop-filter: blur(20px) saturate(var(--saturation));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c-light) calc(var(--glass-reflex-light) * 10%), transparent),
+    inset 1.8px 3px 0px -2px color-mix(in srgb, var(--c-light) calc(var(--glass-reflex-light) * 90%), transparent),
+    inset -2px -2px 0px -2px color-mix(in srgb, var(--c-light) calc(var(--glass-reflex-light) * 80%), transparent),
+    inset -3px -8px 1px -6px color-mix(in srgb, var(--c-light) calc(var(--glass-reflex-light) * 60%), transparent),
+    inset -0.3px -1px 4px 0px color-mix(in srgb, var(--c-dark) calc(var(--glass-reflex-dark) * 12%), transparent),
+    inset -1.5px 2.5px 0px -2px color-mix(in srgb, var(--c-dark) calc(var(--glass-reflex-dark) * 20%), transparent),
+    inset 0px 3px 4px -2px color-mix(in srgb, var(--c-dark) calc(var(--glass-reflex-dark) * 20%), transparent),
+    inset 2px -6.5px 1px -4px color-mix(in srgb, var(--c-dark) calc(var(--glass-reflex-dark) * 10%), transparent),
+    0px 1px 5px 0px color-mix(in srgb, var(--c-dark) calc(var(--glass-reflex-dark) * 50%), transparent),
+    0px 6px 16px 0px color-mix(in srgb, var(--c-dark) calc(var(--glass-reflex-dark) * 8%), transparent);
+  transition: background-color 400ms cubic-bezier(1, 0.0, 0.4, 1),
+    box-shadow 400ms cubic-bezier(1, 0.0, 0.4, 1);
+}
+
+/* 
+   FINAL OVERRIDE: 
+   Force remove all borders and inner shadows from chat header and pinned message bar 
+   as per strict user request.
+*/
+.chat-header-pill,
+.chat-header-pill-glass,
+.chat-header-pill-content,
+.card-main,
+.card-main-inner,
+[data-theme='dark'] .chat-header-pill-glass,
+[data-theme='dark'] .card-main-inner,
+.theme-light .chat-header-pill-glass,
+.theme-light .card-main-inner {
+  border: none !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  /* Removes inner shadows/glows that look like borders */
+}
+
+/* Ensure liquid buffer shadow is also gone if it was creating an edge */
+.goo-stack.dark-mode.active .chat-header-pill-glass,
+.goo-stack.dark-mode.active .card-main {
+  box-shadow: none !important;
+}
+
+/* ========================================= */
+/*      Optimized Animation Keyframes        */
+/* ========================================= */
+
+/* Ensure origin is top for stretching downwards */
+.card-main,
+.card-main.small-anim {
+  transform-origin: top center;
+}
+
+.card-main.small-anim {
+  animation-name: detachFrostSmall !important;
+}
+
+@keyframes detachFrostSmall {
+
+  /* 
+    Physics Flow (Stretched Drop - Same as detachFrost):
+    0%: Start.
+    40%: Deep Vertical Stretch (ScaleY 1.6) - Elongated drop.
+    80%: Squash (ScaleY 0.95) - Landing impact.
+    100%: Settle.
+  */
+  0% {
+    transform: translateY(62px) scale(0.9, 0.9);
+    opacity: 0;
+    border-radius: 24px;
+    border-color: transparent;
+  }
+
+  /* Initial state override to start from 0 if needed, assuming this runs on detach? 
+     Actually detachFrostSmall looks like it might be 'entry' for small cards?
+     If the user says 'detach', they probably mean unpinning.
+     If unpinning removes the card, it might rely on 'exit' animations.
+     But let's stick to modifying the keyframes that look like detach.
+  */
+
+  /* If this is truly detach, it should move down.
+     The existing keyframe had 0% -> 100% all at translateY(62px) which implies it wasn't moving.
+     I will make it move down.
+  */
+  0% {
+    transform: translateY(0px) scale(1, 1);
+    opacity: 1;
+    /* Start fully opaque */
+  }
+
+  40% {
+    transform: translateY(45px) scale(0.9, 1.6);
+    opacity: 1;
+  }
+
+  100% {
+    transform: translateY(62px) scale(1.0, 1.0);
+    opacity: 1;
+    border-radius: 15px;
+    border-color: transparent;
+  }
+}
+
+
+
+@keyframes detachFrost {
+  /* 
+    Physics Flow (Aggressive Stretch):
+    0% - 20%: Start.
+    40%: Deep Vertical Stretch (ScaleY 1.6) - Elongated drop.
+    80%: Squash (ScaleY 0.95) - Landing impact.
+    100%: Settle.
+  */
+
+  /* Simple downward slide - gooey filter creates liquid connection automatically */
+  0% {
+    transform: translateY(0px) scale(1, 1);
+    opacity: 1;
+    /* Start fully opaque (hidden behind header) for stable goo */
+    border-radius: 15px;
+    z-index: 15;
+  }
+
+  /* Stretch as it drops fast */
+  40% {
+    transform: translateY(45px) scale(0.95, 1.60);
+    opacity: 1;
+    /* Full opacity during stretch to prevent flicker */
+    border-radius: 24px;
+  }
+
+  /* Squash near landing */
+  80% {
+    transform: translateY(64px) scale(1.02, 0.95);
+    opacity: 1;
+    border-radius: 24px;
+  }
+
+  100% {
+    transform: translateY(62px) scale(1, 1);
+    opacity: 1;
+    border-radius: 15px;
+    z-index: 15;
+  }
+}
+
+@keyframes contentBlur {
+  0% {
+    filter: blur(0);
+    opacity: 1;
+  }
+
+  25% {
+    filter: blur(0);
+    opacity: 0.75;
+  }
+
+  50% {
+    filter: blur(0);
+    opacity: 0.65;
+  }
+
+  75% {
+    filter: blur(0);
+    opacity: 0.85;
+  }
+
+  100% {
+    filter: blur(0);
+    opacity: 1;
+  }
+}
+
+@keyframes contentBlurMotion {
+  0% {
+    filter: blur(0);
+    opacity: 1;
+  }
+
+  15% {
+    filter: blur(0);
+    opacity: 0.4;
+  }
+
+  25% {
+    filter: blur(0);
+    opacity: 0;
+  }
+
+  70% {
+    filter: blur(0);
+    opacity: 0;
+  }
+
+  85% {
+    filter: blur(0);
+    opacity: 0.6;
+  }
+
+  100% {
+    filter: blur(0);
+    opacity: 1;
+    transform: translateY(0px);
+  }
+}
+
+
+@keyframes headerScale {
+  0% {
+    transform: scale(1);
+    border-radius: 24px;
+    animation-timing-function: ease-in;
+    border-color: var(--pinned-border-color);
+  }
+
+  20% {
+    border-color: transparent;
+  }
+
+  30% {
+    transform: scale(0.94);
+    border-radius: 24px;
+    animation-timing-function: ease-out;
+    border-color: transparent;
+  }
+
+  90% {
+    border-color: transparent;
+  }
+
+  100% {
+    transform: scale(1);
+    border-radius: 24px;
+    border-color: var(--pinned-border-color);
+  }
+}
+
+@keyframes revealUpBlur {
+  0% {
+    opacity: 0;
+    transform: translateY(18px);
+    filter: blur(0);
+  }
+
+  45% {
+    opacity: 0.75;
+    filter: blur(0);
+  }
+
+  70% {
+    opacity: 0.92;
+    filter: blur(0);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0px);
+  }
+}
+
+@keyframes disappearUp {
+  0% {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+
+  25% {
+    opacity: 0.85;
+    transform: translateY(-8px);
+    filter: blur(0px);
+  }
+
+  50% {
+    opacity: 0.6;
+    transform: translateY(-16px);
+    filter: blur(0px);
+  }
+
+  75% {
+    opacity: 0.3;
+    transform: translateY(-22px);
+    filter: blur(0);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(-28px);
+    filter: blur(0px);
+  }
+}
+
+@keyframes appearUp {
+  0% {
+    opacity: 0;
+    transform: translateY(28px);
+    filter: blur(0px);
+  }
+
+  25% {
+    opacity: 0.3;
+    transform: translateY(22px);
+    filter: blur(0px);
+  }
+
+  50% {
+    opacity: 0.6;
+    transform: translateY(16px);
+    filter: blur(0px);
+  }
+
+  75% {
+    opacity: 0.85;
+    transform: translateY(8px);
+    filter: blur(0px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
+/* Chat header pill - solid background like .search-btn */
+.chat-header-pill {
+  background: var(--pinned-bg);
+  border: 1px solid var(--pinned-border-color);
+  border-radius: 15px;
+  /* Normal state radius */
+  position: relative;
+  z-index: 1;
+}
+
+/* Prevent any default/mount animation – only animate when .active */
+.goo-stack:not(.active) .chat-header-pill {
+  animation: none !important;
+}
+
+.card-main.small-anim:not(.exiting) {
+  animation-name: detachFrostSmall !important;
+}
+
+@keyframes detachFrostSmall {
+  0% {
+    transform: translateY(62px) scale(0.9, 0.9);
+    opacity: 0;
+    border-radius: 24px;
+    border-color: transparent;
+  }
+
+  100% {
+    transform: translateY(62px) scale(1.0, 1.0);
+    opacity: 1;
+    border-radius: 24px;
+    border-color: transparent;
+  }
+}
+
+
+
+@keyframes contentBlur {
+  0% {
+    filter: blur(0);
+    opacity: 1;
+  }
+
+  25% {
+    filter: blur(0);
+    opacity: 0.75;
+  }
+
+  50% {
+    filter: blur(0);
+    opacity: 0.65;
+  }
+
+  75% {
+    filter: blur(0);
+    opacity: 0.85;
+  }
+
+  100% {
+    filter: blur(0);
+    opacity: 1;
+  }
+}
+
+@keyframes contentBlurMotion {
+  0% {
+    filter: blur(0);
+    opacity: 1;
+  }
+
+  15% {
+    filter: blur(0);
+    opacity: 0.4;
+  }
+
+  25% {
+    filter: blur(0);
+    opacity: 0;
+  }
+
+  70% {
+    filter: blur(0);
+    opacity: 0;
+  }
+
+  85% {
+    filter: blur(0);
+    opacity: 0.6;
+  }
+
+  100% {
+    filter: blur(0);
+    opacity: 1;
+    transform: translateY(0px);
+  }
+}
+
+
+@keyframes attachFrost {
+
+  /* Simple upward slide - gooey filter creates liquid merging automatically */
+  0% {
+    transform: translateY(55px);
+    opacity: 1;
+    border-radius: 24px;
+    z-index: 15;
+  }
+
+  100% {
+    transform: translateY(-20px);
+    opacity: 0;
+    border-radius: 24px;
+    z-index: 15;
+  }
+}
+
+/* Ensure proper z-index layering during gooey animations */
+.goo-stack.active .chat-header-pill,
+.goo-stack.exiting .chat-header-pill {
+  z-index: 5 !important;
+}
+
+.goo-stack.active .card-main,
+.goo-stack.exiting .card-main {
+  z-index: 15 !important;
+}
+
+/* Chat header stretches from top when pinned bar attaches */
+@keyframes shimmerScan {
+  0% {
+    transform: translateX(-200%) skewX(-20deg);
+    opacity: 0;
+  }
+
+  10% {
+    opacity: 1;
+  }
+
+  100% {
+    transform: translateX(500%) skewX(-20deg);
+    opacity: 0;
+  }
+}
+
+.pinned-messages-bar.attach::after,
+.starred-messages-bar.attach::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2) 50%, transparent);
+  transform: translateX(-100%);
+  pointer-events: none;
+  animation: shimmerScan 0.8s ease-out 0.1s forwards;
+  z-index: 10;
+  border-radius: inherit;
+}
+
+@keyframes headerStretchAttach {
+  /* 
+     Physics Flow (Immediate Rebound):
+     - 0% -> 5%: FAST Start.
+     - 15%: Peak Vertical Stretch (scY 1.20).
+     - 22%: SNAP Back to Normal (Fast Return).
+     - 22% -> 30%: Smooth Push Down (ty 5px).
+     - 30% -> 38%: Smooth Pull Up (ty 0).
+     - 38%: Peak Width Expansion (scX 1.10).
+     - 38% -> 100%: Long Gentle Settle.
+  */
+
+  /* Quick Start */
+  0%,
+  5% {
+    transform: scaleX(1) scaleY(1) translateY(0);
+    border-radius: 15px;
+    /* Start at normal radius */
+    animation-timing-function: cubic-bezier(0.1, 0.9, 0.2, 1);
+  }
+
+  /* Peak Vertical Stretch - slightly rounded */
+  15% {
+    transform: scaleX(0.98) scaleY(1.20) translateY(0);
+    border-radius: 15px;
+    /* Keep normal before width expansion begins */
+    animation-timing-function: ease-in-out;
+  }
+
+  /* SNAP Back and Start Expansion */
+  22% {
+    transform: scaleX(1.00) scaleY(1.00) translateY(0);
+    border-radius: 24px;
+    /* Begin rounding as expansion starts */
+    /* transitioning */
+    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* Mid-Expansion + Push Down (Smoother Blend) */
+  30% {
+    transform: scaleX(1.05) scaleY(0.98) translateY(5px);
+    border-radius: 48px;
+    /* More rounded mid expansion */
+    /* More rounded as it gets wider/squahsed */
+    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* Peak Width - Pulled Up - Max Roundness */
+  38% {
+    transform: scaleX(1.10) scaleY(0.95) translateY(0);
+    border-radius: 50px;
+    /* Fully rounded at peak width */
+  }
+
+  /* 
+    Phase: Contraction (38% -> 100%)
+    Allow browser to smoothly interpolate border-radius from 50px -> 15px
+    perfectly matching the width contraction curve.
+  */
+
+  100% {
+    transform: scaleX(1) scaleY(1) translateY(0);
+    border-radius: 15px;
+    /* Back to normal after expansion completes */
+  }
+}
+
+/* Smooth scale down and rounded corners during detach */
+@keyframes headerStretchDetach {
+
+  /* 
+     New Choreography (Continuous Width Flow):
+     1. 0-20%: Move DOWN + Shrink Width (Anticipation) -> Very rounded
+     2. 20-100%: Smoothly Expand Width Back -> Normal border
+  */
+  0% {
+    transform: scaleX(1) translateY(0);
+    border-radius: 15px;
+    /* Normal at start */
+  }
+
+  20% {
+    transform: scaleX(0.92) translateY(12px);
+    border-radius: 50px;
+    /* Fully rounded (pill) but barely > 34px for smooth return */
+  }
+
+  /* Finish at normal radius when width is normal */
+  100% {
+    transform: scaleX(1) translateY(0);
+    border-radius: 15px;
+    /* Back to normal when width is normal */
+  }
+}
+
+/* Natural pivot for header */
+.goo-stack .chat-header-pill {
+  transform-origin: top center;
+  /* Top anchor for stretch expansion */
+}
+
+/* Specific class to trigger header width reduction during detach */
+.goo-stack.anim-reduce-width .chat-header-pill {
+  animation: headerStretchDetach 2.5s cubic-bezier(0.22, 0.7, 0.2, 1) forwards !important;
+}
+
+/* During attach: chat header stretches upward (top part moves), bottom edge stays pinned */
+/* During attach: chat header stretches upward (top part moves), bottom edge stays pinned */
+.goo-stack.exiting .chat-header-pill {
+  transform-origin: bottom center !important;
+  /* Stretch upwards only */
+  animation-name: headerStretchAttach;
+  animation-timing-function: cubic-bezier(0.22, 0.7, 0.2, 1);
+  animation-duration: 1.5s;
+  /* Synchronized fast speed */
+  animation-delay: 0ms;
+  animation-fill-mode: both;
+}
+
+/* During detach: Header remains static (no stretch), liquid effect comes from bar dropping */
+/* During detach: Header animates with new move-down + shrink choreography - slightly faster return */
+.goo-stack.active:not(.exiting) .chat-header-pill {
+  transform-origin: top center;
+  animation: headerStretchDetach 1.0s cubic-bezier(0.22, 0.7, 0.2, 1) forwards !important;
+  will-change: transform, border-radius;
+}
+
+/* High-intensity motion blur reveal (bottom->top) */
+@keyframes revealUpBlur {
+  0% {
+    opacity: 0;
+    transform: translateY(18px);
+    filter: blur(0);
+  }
+
+  45% {
+    opacity: 0.75;
+    filter: blur(0);
+  }
+
+  70% {
+    opacity: 0.92;
+    filter: blur(0);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
+/* Simple bottom-to-top disappear animation - all elements move straight up */
+@keyframes disappearUp {
+  0% {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+
+  25% {
+    opacity: 0.85;
+    transform: translateY(-8px);
+    filter: blur(0);
+  }
+
+  50% {
+    opacity: 0.6;
+    transform: translateY(-16px);
+    filter: blur(0);
+  }
+
+  75% {
+    opacity: 0.3;
+    transform: translateY(-22px);
+    filter: blur(0);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(-28px);
+    filter: blur(0);
+  }
+}
+
+/* Simple bottom-to-top appear animation - all elements move straight up */
+@keyframes appearUp {
+  0% {
+    opacity: 0;
+    transform: translateY(28px);
+    filter: blur(0);
+  }
+
+  25% {
+    opacity: 0.3;
+    transform: translateY(22px);
+    filter: blur(0);
+  }
+
+  50% {
+    opacity: 0.6;
+    transform: translateY(16px);
+    filter: blur(0);
+  }
+
+  75% {
+    opacity: 0.85;
+    transform: translateY(8px);
+    filter: blur(0);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
+/* Chat header content: play appear animation after detach - smooth and slow */
+.chat-header-pill-content>* {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Disappear animation before detach begins - all elements */
+.goo-stack.active .chat-header-pill-content>* {
+  opacity: 0;
+  transform: translateY(28px);
+  filter: blur(0px);
+  animation: disappearUp calc(var(--detach-duration, 0.7s) * 0.55) cubic-bezier(0.22, 0.61, 0.36, 1) both !important;
+  transform-origin: center bottom;
+}
+
+/* Keep hidden during detach - reveals after blur finishes */
+/* Content visibility handled by specific animation states now */
+
+/* Pinned bar: hidden by default (element only exists when showPinned is true) */
+.card-main {
+  transform: translateY(0px) scale(0.03, 0.02);
+  opacity: 0;
+}
+
+.pinned-content {
+  opacity: 1;
+}
+
+/* Fade in and detach when active, aligned with header bounce downward phase */
+@keyframes pinnedFadeIn {
+  0% {
+    opacity: 0;
+  }
+
+  100% {
+    opacity: 1;
+  }
+}
+
+/* Strong Motion Blur for Content Entrance */
+/* Strong Motion Blur for Content Entrance - Blur REMOVED */
+@keyframes pinnedContentBlurIn {
+  0% {
+    opacity: 1;
+    transform: translateY(40px) scale(0.95);
+    filter: blur(0);
+  }
+
+  30% {
+    opacity: 1;
+    filter: blur(0);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+.card-main.anim-enter .pinned-content {
+  opacity: 1;
+  will-change: auto;
+  animation: none;
+}
+
+@keyframes detachSpring {
+  /* 
+     Liquid Snap (Balanced Early Smoothness):
+     - 0%: Round (50px).
+     - 25%: Impact/Overshoot (Early but Smooth) + Rectangle (24px).
+     - 100%: Settle.
+  */
+
+  /* Starts from inside header for liquid separation */
+  0% {
+    transform: translateY(-30px) scale(0.6, 0.9);
+    opacity: 1;
+    /* Visible immediately */
+    border-radius: 9999px !important;
+    /* Start fully rounded */
+    z-index: 15;
+    filter: blur(0);
+  }
+
+  /* Flatten curve: Quick drop to impact */
+  /* Early Smooth Impact (Immediate Push) */
+  9% {
+    transform: translateY(66px) scale(1.02, 0.98);
+    opacity: 1;
+    border-radius: 64px !important;
+    /* easing toward normal */
+    filter: blur(0);
+  }
+
+  /* Hold droplet shape until after impact/separation starts */
+  15% {
+    border-radius: 48px !important;
+  }
+
+  /* Final Settle (Complete by 25%) - Begin border radius transition */
+  25% {
+    transform: translateY(62px) scale(1);
+    opacity: 1;
+    border-radius: 32px !important;
+    z-index: 15;
+    filter: blur(0px);
+  }
+
+  /* Mid-transition - Gradually normalizing border */
+  50% {
+    border-radius: 24px !important;
+  }
+
+  /* Continue smooth transition */
+  70% {
+    border-radius: 20px !important;
+  }
+
+  /* Nearly complete */
+  85% {
+    border-radius: 18px !important;
+  }
+
+  /* Hold final state with normal border radius */
+  100% {
+    transform: translateY(62px) scale(1);
+    opacity: 1;
+    border-radius: 15px !important;
+    z-index: 15;
+    filter: blur(0px);
+  }
+}
+
+@keyframes attachSpring {
+
+  /* 0%: Start from detached position */
+  0% {
+    transform: translateY(60px) scale(1);
+    opacity: 1;
+    border-radius: 24px;
+    z-index: 15;
+    filter: blur(0);
+  }
+
+  /* 15%: Vacuum Start - Sync with header stretch (was 30%) */
+  15% {
+    transform: translateY(-10px) scale(0.9, 1.3);
+    /* Overlap header significantly */
+    opacity: 1;
+    border-radius: 24px;
+    /* Rounder for liquid feel */
+    filter: blur(0);
+  }
+
+  /* 20%: Start smooth fade as entering header */
+  20% {
+    opacity: 0.8;
+  }
+
+  /* 30%: Continue smooth fade */
+  30% {
+    opacity: 0.3;
+  }
+
+  /* 40%: Fully faded - completely inside header */
+  40% {
+    opacity: 0;
+  }
+
+  /* 45%: Fully inside but compressed/squashed (Invisible now) */
+  45% {
+    transform: translateY(-40px) scale(1.05, 0.8);
+    opacity: 0;
+    border-radius: 24px;
+    filter: blur(0);
+  }
+
+  /* 100%: Disappear */
+  100% {
+    transform: translateY(-60px) scale(1);
+    opacity: 0;
+    border-radius: 24px;
+    z-index: 15;
+    filter: blur(0);
+  }
+}
+
+.card-main {
+  visibility: visible;
+  opacity: 1;
+  /* Default to visible/settled */
+  transform: translateY(60px);
+  /* Default to settled position */
+  /* Remove default animation - apply via .anim-enter class */
+  will-change: transform, opacity;
+  transform-origin: top center;
+  contain: layout style paint;
+  backface-visibility: hidden;
+  perspective: 1000px;
+  /* Fixed scale to prevent squashing */
+  transform: translateY(60px) scale(1);
+}
+
+/* Only animate entry when explicitly triggered (new pin) */
+.card-main.anim-enter {
+  opacity: 0;
+  animation: detachSpring 4.2s cubic-bezier(0.19, 1, 0.22, 1) forwards;
+  animation-delay: 80ms;
+}
+
+/* Attach animation when unpinning (exiting) */
+/* Attach animation when unpinning (exiting) */
+.card-main.exiting:not(.detaching) {
+  z-index: 10 !important;
+  visibility: visible !important;
+  will-change: transform;
+  transform-origin: bottom center;
+  /* Use spring animation for attach too */
+  animation: attachSpring 1.4s linear forwards !important;
+  animation-delay: 0ms !important;
+}
+
+/* Detaching uses slow speed for squeeze phase */
+.card-main.exiting.detaching {
+  z-index: 10 !important;
+  visibility: visible !important;
+  will-change: transform;
+  transform-origin: bottom center;
+  animation: attachSpring 1.1s linear forwards !important;
+}
+
+
+/* 
+  Fluid Stretch & Split Animation 
+  Total duration: ~1.2s to 1.5s for slowness
+*/
+
+/* Input bar stretches up */
+/* Sequence: Move Up -> Subtle Narrow -> Immediate Stretch -> Recoil */
+@keyframes gooInputStretch {
+  0% {
+    height: 52px;
+    transform: translateY(0) scaleX(1);
+    border-radius: 15px;
+  }
+
+  /* 1. Hop Up & Squeeze - 2% */
+  2% {
+    height: 52px;
+    transform: translateY(-14px) scaleX(0.96);
+    border-radius: 20px;
+  }
+
+  /* 3. Main Stretch (Immediate from Hop) - 25% */
+  25% {
+    height: 130px;
+    transform: translateY(0) scaleX(1);
+    border-radius: 15px;
+  }
+
+  /* 4. Recoil (Snap back) - 100% */
+  100% {
+    height: 52px;
+    transform: translateY(0) scaleX(1);
+    border-radius: 15px;
+  }
+}
+
+/* Reply blob follows the subtle sequence */
+@keyframes gooReplySplit {
+  0% {
+    transform: translateY(0) scaleX(1) scaleY(1);
+    opacity: 1;
+    border-radius: 15px;
+  }
+
+  /* 1. Hop Up & Squeeze - 2% */
+  2% {
+    transform: translateY(-14px) scaleX(0.96) scaleY(1);
+    opacity: 1;
+    border-radius: 28px;
+  }
+
+  /* 3. Ride Top of Stretch (Immediate from Hop) - 25% */
+  25% {
+    transform: translateY(-78px) scaleX(1) scaleY(1);
+    opacity: 1;
+    border-radius: 24px;
+  }
+
+  /* 4. Fast Eject/Split - 45% */
+  45% {
+    transform: translateY(-62px) scaleX(1) scaleY(1);
+    opacity: 1;
+    border-radius: 10px !important;
+  }
+
+  /* 5. Hold Final Position */
+  100% {
+    transform: translateY(-62px) scaleX(1) scaleY(1);
+    opacity: 1;
+    border-radius: 10px !important;
+  }
+}
+
+/* Reverse: Attach Animation for Input (Smooth Catch & Shrink) */
+@keyframes gooInputAttach {
+  0% {
+    height: 52px;
+    border-radius: 15px;
+  }
+
+  /* Smooth merge without upward stretch - just maintain position */
+  35% {
+    height: 52px;
+    border-radius: 15px;
+  }
+
+  /* Continue smooth merge */
+  65% {
+    height: 52px;
+    border-radius: 15px;
+  }
+
+  /* No overshoot - keep it stable */
+  80% {
+    height: 52px;
+    border-radius: 15px;
+  }
+
+  /* Final - maintain stable position */
+  100% {
+    height: 52px;
+    border-radius: 15px;
+  }
+}
+
+/* Reverse: Attach Animation for Reply (Smooth, Consistent Drop) */
+@keyframes gooReplyAttach {
+  0% {
+    transform: translateY(-62px);
+    opacity: 1;
+  }
+
+  /* Smooth descent to merge point */
+  60% {
+    transform: translateY(-10px);
+    opacity: 0.5;
+  }
+
+  /* Fully merged and faded */
+  100% {
+    transform: translateY(0);
+    opacity: 0;
+  }
+}
+
+/* Content Blurring Cycle for Footer */
+@keyframes contentBlurCycle {
+  0% {
+    opacity: 1;
+    filter: blur(0);
+  }
+
+  20% {
+    opacity: 0;
+    filter: blur(8px);
+  }
+
+  /* Start Reveal at 28% (0.7s) - Footer Variant */
+  28% {
+    opacity: 0;
+    filter: blur(10px);
+    transform: scale(1.08);
+    /* Subtler Start */
+  }
+
+  /* Slow Land - 75% */
+  75% {
+    opacity: 1;
+    filter: blur(0);
+    transform: scale(0.99);
+    /* Shallow dip */
+  }
+
+  /* Slow Bounce Up - 90% */
+  90% {
+    transform: scale(1.01);
+    /* Tiny bounce */
+  }
+
+  /* Settle - 100% */
+  100% {
+    opacity: 1;
+    filter: blur(0);
+    transform: scale(1);
+  }
+}
+
+/* Reply Content Reveal (Delayed) */
+@keyframes replyContentReveal {
+  0% {
+    opacity: 0;
+    filter: blur(10px);
+    transform: translateY(10px) scale(1.15);
+    /* More dramatic start */
+  }
+
+  /* Slow Overshoot Down */
+  65% {
+    opacity: 1;
+    filter: blur(0);
+    transform: translateY(0) scale(0.98);
+    /* Deeper dip */
+  }
+
+  /* Slow Bounce Up */
+  85% {
+    transform: translateY(0) scale(1.03);
+    /* Higher bounce */
+  }
+
+  100% {
+    opacity: 1;
+    filter: blur(0);
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Old detached spring kept for reference or backup if needed, but overwritten by logic above if class changed */
+@keyframes replyDetachSpring_OLD {
+  /* ... */
+}
+
+@keyframes replyContentBlurIn {
+  0% {
+    opacity: 0;
+    transform: translateY(-20px);
+    /* Start from top */
+    filter: blur(10px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
+.reply-content.anim-enter {
+  animation: replyContentBlurIn 0.5s ease-out both;
+  animation-delay: 200ms;
+  /* slight delay to start after detach */
+}
+
+@keyframes replyAttachSpring {
+
+  /* Start from detached position */
+  0% {
+    transform: translateY(-62px) scale(1);
+    opacity: 1;
+    border-radius: 24px;
+    z-index: 15;
+    filter: blur(0);
+  }
+
+  /* Vacuum start - move toward input */
+  15% {
+    transform: translateY(-20px) scale(0.95, 1.2);
+    opacity: 1;
+    border-radius: 24px;
+    filter: blur(0);
+  }
+
+  /* Start fading as merging */
+  20% {
+    opacity: 0.8;
+  }
+
+  30% {
+    opacity: 0;
+    transform: translateY(0);
+  }
+
+  /* Fully merged and faded */
+  40% {
+    transform: translateY(0) scale(1);
+    opacity: 0;
+    border-radius: 24px;
+  }
+
+  100% {
+    transform: translateY(0);
+    opacity: 0;
+    border-radius: 24px;
+  }
+}
+
+
+/* Reply bar goo-stack container */
+.reply-goo-stack {
+  will-change: filter;
+  transition: filter 0.3s ease;
+}
+
+.reply-goo-stack.active {
+  filter: url(#goo-effect) !important;
+}
+
+.reply-goo-stack.dark-mode.active {
+  filter: url(#goo-effect) !important;
+}
+
+/* Reply bar detach animation (animate the goo bar only) */
+/* Reply bar detach animation (animate the goo bar only) */
+/* Reply bar detach animation (animate the goo bar only) */
+.reply-bar-goo.anim-enter {
+  animation: gooReplySplit 2.0s cubic-bezier(0.19, 1, 0.22, 1) forwards !important;
+  transform-origin: bottom center;
+}
+
+.input-goo.anim-stretch {
+  animation: gooInputStretch 2.0s cubic-bezier(0.19, 1, 0.22, 1) forwards;
+  transition: none !important;
+  transform-origin: bottom center;
+}
+
+.input-goo.anim-exit {
+  animation: gooInputAttach 0.4s linear forwards;
+  transform-origin: bottom center;
+}
+
+.reply-bar-goo.anim-exit {
+  animation: gooReplyAttach 0.4s linear forwards !important;
+  transform-origin: bottom center;
+}
+
+.footer-content.anim-blur {
+  animation: contentBlurCycle 2.5s ease forwards;
+}
+
+.reply-content.anim-enter {
+  animation: replyContentReveal 1.8s ease-out forwards;
+  animation-delay: 0.7s;
+  /* Sync start with footer (28% of 2.5s = 0.7s) */
+}
+
+/* Do not animate overlay content; keep it stable to avoid flicker */
+/* .reply-content has no entrance animation */
+
+/* Reply bar attach animation (goo bar only) */
+.reply-bar-goo.exiting {
+  animation: replyAttachSpring 0.6s cubic-bezier(0.19, 1, 0.22, 1) forwards;
+}
+
+
+@keyframes pinnedFadeOut {
+  0% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
+.card-main-inner {
+  padding: 12px 16px;
+  border: 1px solid transparent;
+  /* Removed border gradient animation per user request */
+}
+
+@keyframes borderFadeIn {
+  to {
+    border-color: var(--pinned-border-color);
+  }
+}
+
+@keyframes borderFadeOut {
+  to {
+    border-color: transparent;
+  }
+}
+
+/* Pinned message text/content: display immediately (fast animation) after detach */
+/* Pinned message text/content: display immediately (fast animation) after detach */
+/* Pinned message text/content: display immediately (fast animation) after detach */
+/* Pinned Element Reveal Animation (Staggered) */
+@keyframes pinnedElementReveal {
+  0% {
+    opacity: 0;
+    transform: translateY(300px);
+    filter: blur(200px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
+/* New Close Animation: Reply drops down to merge with footer */
+@keyframes gooReplyDrop {
+  0% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+
+  30% {
+    transform: translateY(15px) scale(0.95, 1.1);
+    /* Stretch down slightly */
+    opacity: 1;
+  }
+
+  100% {
+    transform: translateY(50px) scale(0.6, 0.4);
+    /* Move down into footer */
+    opacity: 0;
+  }
+}
+
+/* Footer "catches" the reply bar by stretching up/down */
+@keyframes gooInputCatch {
+  0% {
+    transform: scaleY(1);
+  }
+
+  35% {
+    transform: scaleY(0.92);
+    /* Compress slightly */
+  }
+
+  60% {
+    transform: scaleY(1.02);
+    /* Very subtle rebound, almost no stretch up */
+  }
+
+  100% {
+    transform: scaleY(1);
+  }
+}
+
+.reply-bar-goo.anim-close-drop {
+  animation: gooReplyDrop 0.6s cubic-bezier(0.19, 1, 0.22, 1) forwards !important;
+  transform-origin: bottom center;
+  pointer-events: none;
+  /* Prevent clicks during exit */
+}
+
+.input-goo.anim-close-catch {
+  animation: gooInputCatch 0.6s cubic-bezier(0.19, 1, 0.22, 1) forwards;
+  transform-origin: bottom center;
+}
+
+/* Animation rules moved below reset to ensure precedence */
+
+/* Disable individual char animation in this specific context to avoid conflict */
+.chat-header-content-container .pinned-char {
+  animation: none !important;
+  opacity: 1 !important;
+  transform: none !important;
+  filter: none !important;
+}
+
+/* CRITICAL: Disable the legacy wrapper animation that hides content for 250ms */
+/* CRITICAL: Disable the legacy wrapper animation that hides content for 250ms */
+/* Only disable the animation itself, do not force properties so keyframes can work */
+.chat-header-content-container .card-main.anim-enter .pinned-content {
+  animation: none !important;
+  opacity: 1;
+  /* Reset opacity to visible so text wrapper doesn't hide children */
+}
+
+/* Specific Animation Rules (Moved here to override reset) */
+/* Remove display: block to preserve flex layout */
+/* All synced at 0ms delay for unified motion */
+
+/* CRITICAL: Ensure the text overlay container is completely transparent */
+/* The global .card-main-inner has !important background colors, so we must override them for this specific container */
+.chat-header-content-container .card-main .card-main-inner {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.chat-header-content-container .card-main.anim-enter .card-main-inner .pinned-icon {
+  animation: pinnedElementReveal 0.8s cubic-bezier(0.16, 1, 0.3, 1) both !important;
+  animation-delay: 0ms !important;
+  will-change: transform, opacity, filter;
+}
+
+.chat-header-content-container .card-main.anim-enter .card-main-inner .pinned-label {
+  animation: pinnedElementReveal 0.8s cubic-bezier(0.16, 1, 0.3, 1) both !important;
+  animation-delay: 0ms !important;
+  will-change: transform, opacity, filter;
+}
+
+.chat-header-content-container .card-main.anim-enter .card-main-inner .pinned-preview {
+  animation: pinnedElementReveal 0.8s cubic-bezier(0.16, 1, 0.3, 1) both !important;
+  animation-delay: 0ms !important;
+  will-change: transform, opacity, filter;
+}
+
+.chat-header-content-container .card-main.anim-enter .card-main-inner .pinned-arrow {
+  animation: pinnedElementReveal 0.8s cubic-bezier(0.16, 1, 0.3, 1) both !important;
+  animation-delay: 0ms !important;
+  will-change: transform, opacity, filter;
+}
+
+/* Reveal overlay REMOVED per user request */
+
+/* Dark mode overlay REMOVED */
+
+/* Fade reveal animation REMOVED */
+
+/* Text fades out quickly and smoothly before attach */
+/* Text fades out quickly and smoothly before attach */
+/* Override specific element animations when exiting */
+.card-main.exiting .pinned-content,
+.chat-header-content-container .card-main.exiting .card-main-inner .pinned-icon,
+.chat-header-content-container .card-main.exiting .card-main-inner .pinned-label,
+.chat-header-content-container .card-main.exiting .card-main-inner .pinned-preview,
+.chat-header-content-container .card-main.exiting .card-main-inner .pinned-arrow {
+  animation: pinnedFadeOut 0.05s ease-out forwards !important;
+  opacity: 1;
+  /* Start from 1 to fade to 0 */
+  filter: none !important;
+  /* Remove blur during fade out */
+  transform: none !important;
+  /* Stop movement */
+}
+
+@keyframes slideUpBlur {
+  0% {
+    transform: translateY(15px);
+    filter: blur(0);
+  }
+
+  40% {
+    filter: blur(0);
+  }
+
+  100% {
+    transform: translateY(0);
+    filter: blur(0);
+    opacity: 1;
+  }
+}
+
+.goo-stack.active .card-main-frost {
+  animation: frostFade 1.4s cubic-bezier(.25, .46, .45, .94) forwards;
+  will-change: opacity;
+}
+
+@keyframes frostFade {
+  0% {
+    opacity: 0;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  50% {
+    opacity: 0.9;
+    backdrop-filter: blur(0px) saturate(120%);
+    -webkit-backdrop-filter: blur(0px) saturate(120%);
+  }
+
+  100% {
+    opacity: 0;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
+/* Light white sweep animation from header to pinned bar */
+.goo-stack.active .light-sweep-overlay {
+  animation: lightSweep 2s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+  will-change: transform;
+}
+
+@keyframes lightSweep {
+  0% {
+    transform: translateY(-100px);
+    opacity: 0;
+  }
+
+  15% {
+    opacity: 1;
+  }
+
+  50% {
+    transform: translateY(60px);
+    opacity: 1;
+  }
+
+  70% {
+    opacity: 0.7;
+  }
+
+  100% {
+    transform: translateY(180px);
+    opacity: 0;
+  }
+}
+
+/* Flowing gradient overlay during gooey blur */
+.goo-stack.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: -20px;
+  width: 100%;
+  height: 150px;
+  background: linear-gradient(180deg,
+      rgba(220, 220, 220, 0) 0%,
+      rgba(200, 200, 200, 0.25) 20%,
+      rgba(190, 190, 190, 0.35) 50%,
+      rgba(200, 200, 200, 0.25) 80%,
+      rgba(220, 220, 220, 0) 100%);
+  border-radius: 24px;
+  pointer-events: none;
+  z-index: 10;
+  animation: gradientFlow 0.9s cubic-bezier(.25, .46, .45, .94) forwards;
+  will-change: transform;
+}
+
+@keyframes gradientFlow {
+  0% {
+    transform: translateY(0px);
+    opacity: 0;
+  }
+
+  20% {
+    transform: translateY(10px);
+    opacity: 0;
+  }
+
+  30% {
+    transform: translateY(20px);
+    opacity: 0.6;
+  }
+
+  50% {
+    transform: translateY(50px);
+    opacity: 1;
+  }
+
+  70% {
+    transform: translateY(80px);
+    opacity: 0.6;
+  }
+
+  80% {
+    transform: translateY(90px);
+    opacity: 0;
+  }
+
+  100% {
+    transform: translateY(100px);
+    opacity: 0;
+  }
+}
+
+/* Animated gradient overlay for pinned message bar */
+.pinned-gradient-overlay {
+  animation: gradientOverlayFadeIn 0.3s ease 1.05s both,
+    gradientOverlayFadeOut 0.5s ease 13.85s forwards;
+}
+
+/* Hide gradient when exiting */
+.card-main.exiting .pinned-gradient-overlay {
+  opacity: 0 !important;
+  animation: none;
+}
+
+/* Hide gradient reflection while goo detachment is active */
+.goo-stack.active .gradient-reflection {
+  display: none !important;
+}
+
+/* Hide white animations in dark mode */
+.goo-stack.dark-mode.active .light-sweep-overlay,
+.goo-stack.dark-mode.active::before {
+  display: none !important;
+  animation: none !important;
+}
+
+
+@keyframes gradientOverlayFadeIn {
+  0% {
+    opacity: 0;
+  }
+
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes gradientOverlayFadeOut {
+  0% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
+.pinned-gradient-overlay .gradient-shape {
+  animation: semicircleExpand 0.9s linear 1.05s forwards,
+    gradientFlow 5s linear 2.85s infinite;
+  position: relative;
+  background: linear-gradient(90deg,
+      rgb(239, 68, 68) 0%,
+      rgb(236, 72, 153) 25%,
+      rgb(168, 85, 247) 50%,
+      rgb(236, 72, 153) 75%,
+      rgb(239, 68, 68) 100%);
+  background-size: 200% 100%;
+  background-size: 200% 100%;
+  background-position: 0% 0%;
+  opacity: 0.3;
+  visibility: visible;
+}
+
+
+
+
+
+
+/* Gradient reflection - subtle bottom border glow */
+.gradient-reflection {
+  /* Start glow strictly with flowing gradient to avoid appearing during attach */
+  animation: gradientReflectionFadeIn 0.4s ease 2.85s forwards,
+    gradientFlow 5s linear 2.85s infinite,
+    gradientReflectionFadeOut 0.5s ease 13.85s forwards;
+}
+
+/* Dark Mode Gradient - Enabled for visual consistency */
+/* Previously disabled for performance, now re-enabled per user request */
+
+.gradient-reflection {
+  background: linear-gradient(90deg,
+      rgb(239, 68, 68) 0%,
+      rgb(236, 72, 153) 25%,
+      rgb(168, 85, 247) 50%,
+      rgb(236, 72, 153) 75%,
+      rgb(239, 68, 68) 100%);
+  background-size: 200% 100%;
+  background-position: 0% 0%;
+  opacity: 0;
+}
+
+@keyframes gradientReflectionFadeIn {
+  0% {
+    opacity: 0;
+  }
+
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes gradientReflectionFadeOut {
+  0% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes semicircleExpand {
+  0% {
+    width: 0%;
+    height: 0%;
+  }
+
+  50% {
+    width: 100%;
+    height: 140%;
+  }
+
+  100% {
+    width: 140%;
+    height: 180%;
+  }
+}
+
+@keyframes gradientFlow {
+
+  /* Velocity-synchronized: accelerates mid-movement, decelerates when settling */
+  0% {
+    background-position: 0% 0%;
+  }
+
+  15% {
+    background-position: 12% 0%;
+    /* Slow start */
+  }
+
+  30% {
+    background-position: 35% 0%;
+    /* Accelerating */
+  }
+
+  50% {
+    background-position: 100% 0%;
+    /* Peak velocity at midpoint */
+  }
+
+  70% {
+    background-position: 165% 0%;
+    /* Decelerating */
+  }
+
+  85% {
+    background-position: 188% 0%;
+    /* Slow down */
+  }
+
+  100% {
+    background-position: 200% 0%;
+    /* Settle */
+  }
+}
+
+/* Pinned Bar Text Reveal Animation */
+@keyframes blurRevealChar {
+  0% {
+    opacity: 0;
+    transform: translateY(15px);
+    filter: blur(10px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
+.pinned-char {
+  display: inline-block;
+  opacity: 0;
+  will-change: transform, opacity, filter;
+  animation: blurRevealChar 0.9s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Blended Blur Overlay */
+/* Dark Mode Only Blended Blur Overlay */
+[data-theme='dark'] .blur-fade-bottom {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 120px;
+  /* Increased intensity */
+  backdrop-filter: blur(60px);
+  /* Smooth fade out */
+  -webkit-mask-image: linear-gradient(to top, black 0%, transparent 100%);
+  mask-image: linear-gradient(to top, black 0%, transparent 100%);
+  border-bottom: 1px solid transparent;
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* Ensure hidden in light mode */
+[data-theme='light'] .blur-fade-bottom {
+  display: none;
+}
+
+/* Blended Blur Top Overlay */
+/* Dark Mode Only Blended Blur Top Overlay */
+[data-theme='dark'] .blur-fade-top {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 40px;
+  backdrop-filter: blur(80px);
+  -webkit-mask-image: linear-gradient(to bottom, black 0%, transparent 100%);
+  mask-image: linear-gradient(to bottom, black 0%, transparent 100%);
+  border-top: 1px solid transparent;
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* Ensure hidden in light mode */
+[data-theme='light'] .blur-fade-top {
+  display: none;
+}
+
+/* Expander Bottom Blur - Dark Mode Only */
+[data-theme='dark'] .blur-fade-bottom-expander {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 60px;
+  /* Increased height for better coverage */
+  backdrop-filter: blur(60px);
+  /* High intensity */
+  -webkit-mask-image: linear-gradient(to top, black 0%, transparent 100%);
+  mask-image: linear-gradient(to top, black 0%, transparent 100%);
+  pointer-events: none;
+  z-index: 5;
+  border-radius: 0 0 20px 20px;
+  /* Match expander radius */
+}
+
+[data-theme='light'] .blur-fade-bottom-expander {
+  display: none;
+}
+
+/* Hide Scrollbar for Info Panels */
+.contact-info-sidebar::-webkit-scrollbar,
+.contact-info::-webkit-scrollbar,
+.group-profile::-webkit-scrollbar,
+.pins-scroll::-webkit-scrollbar,
+.members-list::-webkit-scrollbar {
+  display: none;
+}
+
+.contact-info-sidebar,
+.contact-info,
+.group-profile,
+.pins-scroll,
+.members-list {
+  -ms-overflow-style: none;
+  /* IE and Edge */
+  scrollbar-width: none;
+  /* Firefox */
+}
+
+/* Character slide-in animation with motion blur for comment bubbles */
+@keyframes charSlideIn {
+  0% {
+    opacity: 0;
+    transform: translateX(-20px);
+    filter: blur(8px);
+  }
+
+  60% {
+    filter: blur(2px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+    filter: blur(0);
+  }
+}

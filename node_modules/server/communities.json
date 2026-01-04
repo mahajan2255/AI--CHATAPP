@@ -1,0 +1,81 @@
+{
+  "communities": [
+    {
+      "id": "community-1767356454570",
+      "name": "Champions",
+      "description": "",
+      "icon": "http://localhost:3001/uploads/1767358210602.gif",
+      "ownerId": "1763755172783",
+      "admins": [
+        "1763755172783"
+      ],
+      "members": [
+        "1763755172783",
+        "1766839968356",
+        "1763743221810",
+        "1763743199505"
+      ],
+      "subGroups": [
+        "group-1767007219935"
+      ],
+      "announcementGroupId": "group-1767356454570",
+      "visibility": "public",
+      "inviteLink": "community-1767356454570-fd015718163e4787f2f8e87b6d04d5ee",
+      "joinRequests": [],
+      "blockedMembers": [],
+      "settings": {
+        "allowMemberInvites": false,
+        "requireApproval": false,
+        "allowForwarding": true
+      },
+      "createdAt": 1767356454571,
+      "moderationLogs": [
+        {
+          "action": "community_created",
+          "by": "1763755172783",
+          "target": null,
+          "timestamp": 1767356454571
+        },
+        {
+          "action": "group_added",
+          "by": "1763755172783",
+          "target": "group-1767007219935",
+          "timestamp": 1767356493121
+        }
+      ]
+    },
+    {
+      "id": "community-1767358229017",
+      "name": "Plateaus",
+      "description": "",
+      "icon": "http://localhost:3001/uploads/1767358240015.gif",
+      "ownerId": "1763755172783",
+      "admins": [
+        "1763755172783"
+      ],
+      "members": [
+        "1763755172783"
+      ],
+      "subGroups": [],
+      "announcementGroupId": "group-1767358229017",
+      "visibility": "public",
+      "inviteLink": "community-1767358229017-34ec0ab723ab36c82c153ac67f343889",
+      "joinRequests": [],
+      "blockedMembers": [],
+      "settings": {
+        "allowMemberInvites": false,
+        "requireApproval": false,
+        "allowForwarding": true
+      },
+      "createdAt": 1767358229023,
+      "moderationLogs": [
+        {
+          "action": "community_created",
+          "by": "1763755172783",
+          "target": null,
+          "timestamp": 1767358229023
+        }
+      ]
+    }
+  ]
+}

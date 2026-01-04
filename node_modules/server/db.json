@@ -1,0 +1,142 @@
+{
+  "users": [
+    {
+      "id": "1763743199505",
+      "username": "hello",
+      "password": "hello",
+      "avatar": "http://localhost:3001/uploads/1764252710902.gif",
+      "friends": [
+        "1763743221810",
+        "1763902622664",
+        "1763755172783",
+        "1763743199505",
+        "1763743199505"
+      ],
+      "about": "i am hello🤫",
+      "archivedItems": [
+        {
+          "type": "friend",
+          "id": "1763743221810"
+        },
+        {
+          "type": "group",
+          "id": "group-1764341936084"
+        }
+      ]
+    },
+    {
+      "id": "1763743221810",
+      "username": "bye",
+      "password": "bye",
+      "avatar": "http://localhost:3001/uploads/1764352628432.gif",
+      "friends": [
+        "1763743199505",
+        "1763902622664"
+      ],
+      "about": "Hey there! ",
+      "archivedItems": [
+        {
+          "type": "friend",
+          "id": "1763743199505"
+        },
+        {
+          "type": "friend",
+          "id": "1763755172783"
+        }
+      ]
+    },
+    {
+      "id": "1763745457982",
+      "phoneNumber": "+91 8076065805",
+      "username": "User5805",
+      "avatar": "https://i.pravatar.cc/150?u=1763745457982",
+      "about": "Hey there! I am using Chat App.",
+      "friends": []
+    },
+    {
+      "id": "1763755172783",
+      "username": "hi",
+      "password": "hi",
+      "avatar": "http://localhost:3001/uploads/1767259555586.mp4",
+      "friends": [
+        "1763755172783",
+        "1763755172783",
+        "1763743199505",
+        "1766839968356"
+      ],
+      "archivedItems": [
+        {
+          "type": "group",
+          "id": "group-1764341936084"
+        },
+        {
+          "type": "friend",
+          "id": "1763743199505"
+        }
+      ],
+      "about": "rockin roll😡",
+      "blocked": []
+    },
+    {
+      "id": "1763807219731",
+      "username": "friend",
+      "password": "friend",
+      "avatar": "https://i.pravatar.cc/150?u=1763807219731",
+      "friends": []
+    },
+    {
+      "id": "1763902622664",
+      "username": "saksham",
+      "password": "saksham",
+      "avatar": "http://localhost:3001/uploads/1764008841408.jpeg",
+      "friends": [
+        "1763743199505",
+        "1763743221810"
+      ],
+      "archivedItems": []
+    },
+    {
+      "id": "1764001114814",
+      "username": "test",
+      "password": "test",
+      "avatar": "https://i.pravatar.cc/150?u=1764001114814",
+      "friends": [],
+      "archivedItems": []
+    },
+    {
+      "id": "1764001172801",
+      "username": "user1",
+      "password": "pass",
+      "avatar": "https://i.pravatar.cc/150?u=1764001172801",
+      "friends": [],
+      "archivedItems": []
+    },
+    {
+      "id": "1764267334632",
+      "username": "admin",
+      "password": "admin",
+      "avatar": "http://localhost:3001/uploads/1764268763626.gif",
+      "friends": [],
+      "archivedItems": []
+    },
+    {
+      "id": "1766839968356",
+      "username": "edward",
+      "password": "edward",
+      "avatar": "http://localhost:3001/uploads/1767025135602.jpg",
+      "friends": [
+        "1763755172783"
+      ],
+      "archivedItems": []
+    },
+    {
+      "id": "1767464725442",
+      "username": "saksham1",
+      "password": "saksham1",
+      "avatar": "https://i.pravatar.cc/150?u=1767464725442",
+      "friends": [],
+      "archivedItems": []
+    }
+  ],
+  "friendRequests": []
+}
